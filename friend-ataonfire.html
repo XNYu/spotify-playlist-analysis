@@ -1,0 +1,1078 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>AtaONFIRE Spotify Library Analysis</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f7f5ef;
+      --surface: #fffdf7;
+      --surface-2: #eee9de;
+      --ink: #20201d;
+      --muted: #66645d;
+      --line: rgba(32, 32, 29, 0.12);
+      --accent: #0f766e;
+      --accent-2: #dc6b3a;
+      --chart-track: rgba(32, 32, 29, 0.09);
+      --shadow: 0 18px 48px rgba(34, 31, 25, 0.09);
+      --radius: 8px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141512;
+        --surface: #1c1e1a;
+        --surface-2: #262821;
+        --ink: #f0eee7;
+        --muted: #b7b0a2;
+        --line: rgba(240, 238, 231, 0.14);
+        --accent: #2dd4bf;
+        --accent-2: #fb8b61;
+        --chart-track: rgba(240, 238, 231, 0.11);
+        --shadow: 0 18px 48px rgba(0, 0, 0, 0.26);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(135deg, rgba(15, 118, 110, 0.09), transparent 34%),
+        linear-gradient(315deg, rgba(220, 107, 58, 0.12), transparent 38%),
+        var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+    a { color: inherit; }
+    .page { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 56px; }
+    .hero {
+      min-height: 420px;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 28px;
+      align-items: stretch;
+      padding: 28px 0 20px;
+    }
+    .hero-main, .panel, .metric, details {
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .hero-main { padding: 34px; display: flex; flex-direction: column; justify-content: space-between; }
+    .kicker {
+      margin: 0 0 18px;
+      color: var(--accent);
+      font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 0.08em;
+    }
+    h1 { margin: 0; max-width: 860px; font-size: clamp(38px, 7vw, 76px); line-height: 0.96; letter-spacing: 0; }
+    .subtitle { margin: 22px 0 0; color: var(--muted); max-width: 68ch; font-size: 17px; }
+    .meta-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+    .meta-strip span, .pill {
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      border-radius: 999px;
+      padding: 7px 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .hero-side { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .metric { padding: 22px; min-height: 126px; }
+    .metric .label { color: var(--muted); font-size: 13px; }
+    .metric .value { margin-top: 10px; font-size: 34px; font-weight: 780; line-height: 1; font-variant-numeric: tabular-nums; }
+    .metric .note { margin-top: 9px; color: var(--muted); font-size: 13px; }
+    section { margin-top: 24px; }
+    .section-title { margin: 0 0 14px; font-size: 28px; line-height: 1.1; }
+    .section-copy { margin: 0 0 18px; color: var(--muted); max-width: 76ch; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .panel { padding: 22px; overflow: hidden; }
+    .panel.flat { box-shadow: none; }
+    .narrative { display: grid; gap: 12px; }
+    .narrative p { margin: 0; padding-left: 14px; border-left: 3px solid var(--accent); color: var(--muted); }
+    .chart { width: 100%; height: auto; display: block; overflow: visible; }
+    .chart-title { fill: var(--ink); font: 750 20px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .chart-label { fill: var(--muted); font: 12px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .chart-value, .heat-value { fill: var(--ink); font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .legend-small { fill: var(--muted); font: 11px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .bar-track { fill: var(--chart-track); }
+    .axis { stroke: var(--line); stroke-width: 1; }
+    .donut-number { fill: var(--ink); font: 800 34px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .donut-caption { fill: var(--muted); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill { display: inline-flex; gap: 8px; align-items: center; }
+    .pill strong { color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+    table { width: 100%; min-width: 850px; border-collapse: collapse; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; font-weight: 700; background: var(--surface-2); }
+    td { font-size: 14px; }
+    tr:last-child td { border-bottom: 0; }
+    .strong { font-weight: 760; }
+    .muted-cell { color: var(--muted); }
+    .file-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .file-list li { display: flex; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--line); padding: 7px 0; color: var(--muted); }
+    .file-list a { color: var(--accent); text-decoration: none; }
+    details { padding: 0; overflow: hidden; box-shadow: none; }
+    summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 18px; padding: 16px 18px; font-weight: 760; }
+    summary::-webkit-details-marker { display: none; }
+    details[open] summary { border-bottom: 1px solid var(--line); }
+    .footer { margin-top: 28px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 860px) {
+      .page { width: min(100% - 22px, 1180px); padding-top: 12px; }
+      .hero, .grid-2, .grid-3, .metric-grid { grid-template-columns: 1fr; }
+      .hero-main { padding: 24px; }
+      h1 { font-size: clamp(34px, 12vw, 54px); }
+      .metric { min-height: auto; }
+    }
+    @media print {
+      body { background: var(--surface); }
+      .hero-main, .panel, .metric, details { box-shadow: none; }
+      .page { width: 100%; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-main">
+        <div>
+          <p class="kicker">SPOTIFY LIBRARY ANALYSIS</p>
+          <h1>AtaONFIRE library overview</h1>
+          <p class="subtitle">这份完整报告恢复了旧版图表：歌曲审美分析基于 Liked Songs 和可读取 playlist tracks，去重后共有 1524 首有效歌曲。 主导年代是 2010s，主导 genre family 是 Other/Unclassified，Top artist 是 Rammstein。 Top 10 主歌手合计占 17.6%；同时有 525 位主歌手只出现 1 次，说明长尾很厚。 完整 library 侧还额外列出 38 张 saved albums、46 位 followed artists，并汇总出 952 位 artist。 歌曲发行年份跨度从 1947 到 2026，中位发行年约为 2018。 有 7 个 playlist 的 tracks 被 Spotify API 返回 403；这些 playlist 仍列在清单里，但没有进入歌曲图表。</p>
+        </div>
+        <div class="meta-strip">
+          <span>Generated 2026-07-06T16:57:38</span>
+          <span>Liked Songs 1426</span>
+          <span>Readable playlist rows 124</span>
+          <span>Skipped tracks 0</span>
+          <span>Source Spotify API</span>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="metric"><div class="label">Top artist</div><div class="value">Rammstein</div><div class="note">按 primary artist / tracks</div></div>
+        <div class="metric"><div class="label">Top genre</div><div class="value">Other/Unclassified</div><div class="note">按歌曲 genre family</div></div>
+        <div class="metric"><div class="label">Top decade</div><div class="value">2010s</div><div class="note">按 album release date</div></div>
+      </div>
+    </section>
+
+    <section class="metric-grid">
+      <div class="metric"><div class="label">Unique tracks</div><div class="value">1524</div><div class="note">liked + readable playlists 去重</div></div><div class="metric"><div class="label">Playlists</div><div class="value">9</div><div class="note">Spotify 返回的 playlist 总数</div></div><div class="metric"><div class="label">Saved albums</div><div class="value">38</div><div class="note">资料库已保存专辑</div></div><div class="metric"><div class="label">Followed artists</div><div class="value">46</div><div class="note">你关注的歌手</div></div><div class="metric"><div class="label">Library artists</div><div class="value">952</div><div class="note">跨 tracks / albums / follows 汇总</div></div><div class="metric"><div class="label">Skipped playlists</div><div class="value">7</div><div class="note">Spotify 403 不可读 tracks</div></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">核心结论</h2>
+      <div class="panel narrative">
+        <p>这份完整报告恢复了旧版图表：歌曲审美分析基于 Liked Songs 和可读取 playlist tracks，去重后共有 1524 首有效歌曲。</p><p>主导年代是 2010s，主导 genre family 是 Other/Unclassified，Top artist 是 Rammstein。</p><p>Top 10 主歌手合计占 17.6%；同时有 525 位主歌手只出现 1 次，说明长尾很厚。</p><p>完整 library 侧还额外列出 38 张 saved albums、46 位 followed artists，并汇总出 952 位 artist。</p><p>歌曲发行年份跨度从 1947 到 2026，中位发行年约为 2018。</p><p>有 7 个 playlist 的 tracks 被 Spotify API 返回 403；这些 playlist 仍列在清单里，但没有进入歌曲图表。</p>
+        <p>Saved albums 和 followed artists 进入 library artist 清单；歌曲年代、genre、top artists 图表只统计有 track 数据的 liked/playlist 部分。</p>
+      </div>
+    </section>
+
+    <section class="grid-2">
+      <div class="panel"><svg class="chart donut-chart" viewBox="0 0 700 310" role="img" aria-label="歌曲来源分布">
+<text x="0" y="24" class="chart-title">歌曲来源分布</text>
+<circle cx="150" cy="150" r="104" fill="none" stroke="var(--chart-track)" stroke-width="34"></circle>
+<path d="M 99.492 59.088 A 104 104 0 1 0 150.000 46.000" fill="none" stroke="#0f766e" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 139.300 46.552 A 104 104 0 0 0 99.492 59.088" fill="none" stroke="#2563eb" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 150.000 46.000 A 104 104 0 0 0 139.300 46.552" fill="none" stroke="#dc6b3a" stroke-width="34" stroke-linecap="round"></path>
+<text x="150" y="146" text-anchor="middle" class="donut-number">1524</text>
+<text x="150" y="172" text-anchor="middle" class="donut-caption">tracks</text>
+<rect x="330" y="61" width="12" height="12" rx="3" fill="#0f766e"></rect>
+<text x="354" y="72" class="chart-label">Liked only</text>
+<text x="650" y="72" text-anchor="end" class="chart-value">1401 (91.9%)</text>
+<rect x="330" y="83" width="12" height="12" rx="3" fill="#2563eb"></rect>
+<text x="354" y="94" class="chart-label">Playlist only</text>
+<text x="650" y="94" text-anchor="end" class="chart-value">98 (6.4%)</text>
+<rect x="330" y="105" width="12" height="12" rx="3" fill="#dc6b3a"></rect>
+<text x="354" y="116" class="chart-label">Both</text>
+<text x="650" y="116" text-anchor="end" class="chart-value">25 (1.6%)</text>
+</svg></div>
+      <div class="panel"><svg class="chart" viewBox="0 0 920 172" role="img" aria-label="Artist source coverage">
+<text x="0" y="22" class="chart-title">Artist source coverage</text>
+<text x="0" y="62" class="chart-label">Liked Songs</text>
+<rect x="230" y="46" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="46" width="600.00" height="18" rx="8" fill="#0f766e"></rect>
+<text x="844" y="61" class="chart-value">868</text>
+<text x="0" y="93" class="chart-label">Playlist Tracks</text>
+<rect x="230" y="77" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="77" width="79.49" height="18" rx="8" fill="#2563eb"></rect>
+<text x="844" y="92" class="chart-value">115</text>
+<text x="0" y="124" class="chart-label">Followed Artists</text>
+<rect x="230" y="108" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="108" width="31.80" height="18" rx="8" fill="#dc6b3a"></rect>
+<text x="844" y="123" class="chart-value">46</text>
+<text x="0" y="155" class="chart-label">Saved Albums</text>
+<rect x="230" y="139" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="139" width="21.43" height="18" rx="8" fill="#7c3aed"></rect>
+<text x="844" y="154" class="chart-value">31</text>
+</svg></div>
+    </section>
+
+    <section class="grid-2">
+      <div class="panel"><svg class="chart donut-chart" viewBox="0 0 700 310" role="img" aria-label="Genre family share">
+<text x="0" y="24" class="chart-title">Genre family share</text>
+<circle cx="150" cy="150" r="104" fill="none" stroke="var(--chart-track)" stroke-width="34"></circle>
+<path d="M 51.197 182.464 A 104 104 0 1 0 150.000 46.000" fill="none" stroke="#0f766e" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 52.770 113.090 A 104 104 0 0 0 51.197 182.464" fill="none" stroke="#2563eb" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 90.759 64.522 A 104 104 0 0 0 52.770 113.090" fill="none" stroke="#dc6b3a" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 119.990 50.424 A 104 104 0 0 0 90.759 64.522" fill="none" stroke="#7c3aed" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 145.713 46.088 A 104 104 0 0 0 119.990 50.424" fill="none" stroke="#c2410c" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 147.856 46.022 A 104 104 0 0 0 145.713 46.088" fill="none" stroke="#0891b2" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 149.142 46.004 A 104 104 0 0 0 147.856 46.022" fill="none" stroke="#be123c" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 150.000 46.000 A 104 104 0 0 0 149.142 46.004" fill="none" stroke="#65a30d" stroke-width="34" stroke-linecap="round"></path>
+<text x="150" y="146" text-anchor="middle" class="donut-number">1524</text>
+<text x="150" y="172" text-anchor="middle" class="donut-caption">tracks</text>
+<rect x="330" y="61" width="12" height="12" rx="3" fill="#0f766e"></rect>
+<text x="354" y="72" class="chart-label">Other/Unclassified</text>
+<text x="650" y="72" text-anchor="end" class="chart-value">1066 (69.9%)</text>
+<rect x="330" y="83" width="12" height="12" rx="3" fill="#2563eb"></rect>
+<text x="354" y="94" class="chart-label">日系 Pop/Rock</text>
+<text x="650" y="94" text-anchor="end" class="chart-value">165 (10.8%)</text>
+<rect x="330" y="105" width="12" height="12" rx="3" fill="#dc6b3a"></rect>
+<text x="354" y="116" class="chart-label">C-Pop/Mandopop</text>
+<text x="650" y="116" text-anchor="end" class="chart-value">146 (9.6%)</text>
+<rect x="330" y="127" width="12" height="12" rx="3" fill="#7c3aed"></rect>
+<text x="354" y="138" class="chart-label">Anime/Game/Soundtrack</text>
+<text x="650" y="138" text-anchor="end" class="chart-value">76 (5.0%)</text>
+<rect x="330" y="149" width="12" height="12" rx="3" fill="#c2410c"></rect>
+<text x="354" y="160" class="chart-label">Rock/Alternative</text>
+<text x="650" y="160" text-anchor="end" class="chart-value">61 (4.0%)</text>
+<rect x="330" y="171" width="12" height="12" rx="3" fill="#0891b2"></rect>
+<text x="354" y="182" class="chart-label">Pop</text>
+<text x="650" y="182" text-anchor="end" class="chart-value">5 (0.3%)</text>
+<rect x="330" y="193" width="12" height="12" rx="3" fill="#be123c"></rect>
+<text x="354" y="204" class="chart-label">Classical/Instrumental</text>
+<text x="650" y="204" text-anchor="end" class="chart-value">3 (0.2%)</text>
+<rect x="330" y="215" width="12" height="12" rx="3" fill="#65a30d"></rect>
+<text x="354" y="226" class="chart-label">Electronic</text>
+<text x="650" y="226" text-anchor="end" class="chart-value">2 (0.1%)</text>
+</svg></div>
+      <div class="panel"><svg class="chart" viewBox="0 0 920 606" role="img" aria-label="Top primary artists">
+<text x="0" y="22" class="chart-title">Top primary artists</text>
+<text x="0" y="62" class="chart-label">Rammstein</text>
+<rect x="230" y="46" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="46" width="600.00" height="18" rx="8" fill="#0f766e"></rect>
+<text x="844" y="61" class="chart-value">49</text>
+<text x="0" y="93" class="chart-label">BROCKHAMPTON</text>
+<rect x="230" y="77" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="77" width="502.04" height="18" rx="8" fill="#2563eb"></rect>
+<text x="844" y="92" class="chart-value">41</text>
+<text x="0" y="124" class="chart-label">Kevin Abstract</text>
+<rect x="230" y="108" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="108" width="342.86" height="18" rx="8" fill="#dc6b3a"></rect>
+<text x="844" y="123" class="chart-value">28</text>
+<text x="0" y="155" class="chart-label">Hitorie</text>
+<rect x="230" y="139" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="139" width="330.61" height="18" rx="8" fill="#7c3aed"></rect>
+<text x="844" y="154" class="chart-value">27</text>
+<text x="0" y="186" class="chart-label">Linkin Park</text>
+<rect x="230" y="170" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="170" width="318.37" height="18" rx="8" fill="#c2410c"></rect>
+<text x="844" y="185" class="chart-value">26</text>
+<text x="0" y="217" class="chart-label">No Party For Cao Dong</text>
+<rect x="230" y="201" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="201" width="293.88" height="18" rx="8" fill="#0891b2"></rect>
+<text x="844" y="216" class="chart-value">24</text>
+<text x="0" y="248" class="chart-label">The Weeknd</text>
+<rect x="230" y="232" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="232" width="281.63" height="18" rx="8" fill="#be123c"></rect>
+<text x="844" y="247" class="chart-value">23</text>
+<text x="0" y="279" class="chart-label">toe</text>
+<rect x="230" y="263" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="263" width="208.16" height="18" rx="8" fill="#65a30d"></rect>
+<text x="844" y="278" class="chart-value">17</text>
+<text x="0" y="310" class="chart-label">My Chemical Romance</text>
+<rect x="230" y="294" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="294" width="208.16" height="18" rx="8" fill="#9333ea"></rect>
+<text x="844" y="309" class="chart-value">17</text>
+<text x="0" y="341" class="chart-label">Sheena Ringo</text>
+<rect x="230" y="325" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="325" width="195.92" height="18" rx="8" fill="#ca8a04"></rect>
+<text x="844" y="340" class="chart-value">16</text>
+<text x="0" y="372" class="chart-label">Sum 41</text>
+<rect x="230" y="356" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="356" width="183.67" height="18" rx="8" fill="#0f766e"></rect>
+<text x="844" y="371" class="chart-value">15</text>
+<text x="0" y="403" class="chart-label">Bloodhound Gang</text>
+<rect x="230" y="387" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="387" width="183.67" height="18" rx="8" fill="#2563eb"></rect>
+<text x="844" y="402" class="chart-value">15</text>
+<text x="0" y="434" class="chart-label">Billie Eilish</text>
+<rect x="230" y="418" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="418" width="171.43" height="18" rx="8" fill="#dc6b3a"></rect>
+<text x="844" y="433" class="chart-value">14</text>
+<text x="0" y="465" class="chart-label">Ameer Vann</text>
+<rect x="230" y="449" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="449" width="146.94" height="18" rx="8" fill="#7c3aed"></rect>
+<text x="844" y="464" class="chart-value">12</text>
+<text x="0" y="496" class="chart-label">Green Day</text>
+<rect x="230" y="480" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="480" width="146.94" height="18" rx="8" fill="#c2410c"></rect>
+<text x="844" y="495" class="chart-value">12</text>
+<text x="0" y="527" class="chart-label">Bon Iver</text>
+<rect x="230" y="511" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="511" width="134.69" height="18" rx="8" fill="#0891b2"></rect>
+<text x="844" y="526" class="chart-value">11</text>
+<text x="0" y="558" class="chart-label">Toby Fox</text>
+<rect x="230" y="542" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="542" width="134.69" height="18" rx="8" fill="#be123c"></rect>
+<text x="844" y="557" class="chart-value">11</text>
+<text x="0" y="589" class="chart-label">amazarashi</text>
+<rect x="230" y="573" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="573" width="122.45" height="18" rx="8" fill="#65a30d"></rect>
+<text x="844" y="588" class="chart-value">10</text>
+</svg></div>
+    </section>
+
+    <section class="grid-2">
+      <div class="panel"><svg class="chart" viewBox="0 0 920 310" role="img" aria-label="发行年代分布">
+<text x="0" y="24" class="chart-title">发行年代分布</text>
+<rect x="60.03" y="257.68" width="58.83" height="0.32" rx="8" fill="#0f766e"></rect>
+<text x="89.44" y="249.68" text-anchor="middle" class="chart-value">1</text>
+<text x="89.44" y="292" text-anchor="middle" class="chart-label">1940s</text>
+<rect x="154.92" y="257.68" width="58.83" height="0.32" rx="8" fill="#2563eb"></rect>
+<text x="184.33" y="249.68" text-anchor="middle" class="chart-value">1</text>
+<text x="184.33" y="292" text-anchor="middle" class="chart-label">1950s</text>
+<rect x="249.81" y="255.15" width="58.83" height="2.85" rx="8" fill="#dc6b3a"></rect>
+<text x="279.22" y="247.15" text-anchor="middle" class="chart-value">9</text>
+<text x="279.22" y="292" text-anchor="middle" class="chart-label">1960s</text>
+<rect x="344.70" y="255.46" width="58.83" height="2.54" rx="8" fill="#7c3aed"></rect>
+<text x="374.11" y="247.46" text-anchor="middle" class="chart-value">8</text>
+<text x="374.11" y="292" text-anchor="middle" class="chart-label">1970s</text>
+<rect x="439.58" y="256.73" width="58.83" height="1.27" rx="8" fill="#c2410c"></rect>
+<text x="469.00" y="248.73" text-anchor="middle" class="chart-value">4</text>
+<text x="469.00" y="292" text-anchor="middle" class="chart-label">1980s</text>
+<rect x="534.47" y="245.32" width="58.83" height="12.68" rx="8" fill="#0891b2"></rect>
+<text x="563.89" y="237.32" text-anchor="middle" class="chart-value">40</text>
+<text x="563.89" y="292" text-anchor="middle" class="chart-label">1990s</text>
+<rect x="629.36" y="180.04" width="58.83" height="77.96" rx="8" fill="#be123c"></rect>
+<text x="658.78" y="172.04" text-anchor="middle" class="chart-value">246</text>
+<text x="658.78" y="292" text-anchor="middle" class="chart-label">2000s</text>
+<rect x="724.25" y="46.00" width="58.83" height="212.00" rx="8" fill="#65a30d"></rect>
+<text x="753.67" y="38.00" text-anchor="middle" class="chart-value">669</text>
+<text x="753.67" y="292" text-anchor="middle" class="chart-label">2010s</text>
+<rect x="819.14" y="84.98" width="58.83" height="173.02" rx="8" fill="#9333ea"></rect>
+<text x="848.56" y="76.98" text-anchor="middle" class="chart-value">546</text>
+<text x="848.56" y="292" text-anchor="middle" class="chart-label">2020s</text>
+<line x1="42" y1="258" x2="896" y2="258" class="axis"></line>
+</svg></div>
+      <div class="panel"><svg class="chart" viewBox="0 0 920 260" role="img" aria-label="发行年份密度">
+<text x="0" y="24" class="chart-title">发行年份密度</text>
+<rect x="38.00" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<text x="38.00" y="240" text-anchor="middle" class="chart-label">1947</text>
+<rect x="48.83" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="59.65" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="70.47" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<text x="70.47" y="240" text-anchor="middle" class="chart-label">1950</text>
+<rect x="81.30" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="92.12" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="102.95" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="113.77" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="124.60" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="135.43" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="146.25" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="157.07" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="167.90" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="178.72" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<text x="178.72" y="240" text-anchor="middle" class="chart-label">1960</text>
+<rect x="189.55" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="200.38" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="211.20" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="222.02" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="232.85" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="243.67" y="205.57" width="7.79" height="4.43" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="254.50" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="265.32" y="206.68" width="7.79" height="3.32" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="276.15" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="286.98" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<text x="286.98" y="240" text-anchor="middle" class="chart-label">1970</text>
+<rect x="297.80" y="207.78" width="7.79" height="2.22" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="308.62" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="319.45" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="330.27" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="341.10" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="351.92" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="362.75" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="373.57" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="384.40" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="395.22" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<text x="395.22" y="240" text-anchor="middle" class="chart-label">1980</text>
+<rect x="406.05" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="416.88" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="427.70" y="206.68" width="7.79" height="3.32" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="438.52" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="449.35" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="460.17" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="471.00" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="481.82" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="492.65" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="503.47" y="210.00" width="7.79" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<text x="503.47" y="240" text-anchor="middle" class="chart-label">1990</text>
+<rect x="514.30" y="207.78" width="7.79" height="2.22" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="525.12" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="535.95" y="208.89" width="7.79" height="1.11" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="546.77" y="204.46" width="7.79" height="5.54" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="557.60" y="205.57" width="7.79" height="4.43" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="568.42" y="202.24" width="7.79" height="7.76" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="579.25" y="201.14" width="7.79" height="8.86" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="590.07" y="205.57" width="7.79" height="4.43" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="600.90" y="201.14" width="7.79" height="8.86" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="611.72" y="193.38" width="7.79" height="16.62" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<text x="611.72" y="240" text-anchor="middle" class="chart-label">2000</text>
+<rect x="622.55" y="192.27" width="7.79" height="17.73" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="633.38" y="184.51" width="7.79" height="25.49" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="644.20" y="186.73" width="7.79" height="23.27" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="655.02" y="181.19" width="7.79" height="28.81" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="665.85" y="187.84" width="7.79" height="22.16" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="676.67" y="174.54" width="7.79" height="35.46" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="687.50" y="166.78" width="7.79" height="43.22" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="698.32" y="182.30" width="7.79" height="27.70" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="709.15" y="177.86" width="7.79" height="32.14" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="719.97" y="177.86" width="7.79" height="32.14" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<text x="719.97" y="240" text-anchor="middle" class="chart-label">2010</text>
+<rect x="730.80" y="166.78" width="7.79" height="43.22" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="741.62" y="170.11" width="7.79" height="39.89" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="752.45" y="177.86" width="7.79" height="32.14" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="763.27" y="160.14" width="7.79" height="49.86" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="774.10" y="133.54" width="7.79" height="76.46" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="784.92" y="112.49" width="7.79" height="97.51" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="795.75" y="121.35" width="7.79" height="88.65" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="806.57" y="92.54" width="7.79" height="117.46" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="817.40" y="46.00" width="7.79" height="164.00" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="828.22" y="81.46" width="7.79" height="128.54" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<text x="828.22" y="240" text-anchor="middle" class="chart-label">2020</text>
+<rect x="839.05" y="118.03" width="7.79" height="91.97" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="849.88" y="128.00" width="7.79" height="82.00" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="860.70" y="140.19" width="7.79" height="69.81" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="871.52" y="108.05" width="7.79" height="101.95" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="882.35" y="111.38" width="7.79" height="98.62" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="893.17" y="177.86" width="7.79" height="32.14" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<text x="893.17" y="240" text-anchor="middle" class="chart-label">2026</text>
+<line x1="38" y1="210" x2="904" y2="210" class="axis"></line>
+</svg></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Genre 和年代的交叉分布</h2>
+      <p class="section-copy">这部分沿用之前 playlist 报告的视觉结构，用来观察你真正听过或放进列表里的歌曲，在哪些年代和声音类型上聚集。</p>
+      <div class="grid-2">
+        <div class="panel"><svg class="chart" viewBox="0 0 920 360" role="img" aria-label="Genre by decade stacked bars">
+<text x="0" y="24" class="chart-title">Genre x 年代分布</text>
+<rect x="71.78" y="283.65" width="58.00" height="0.35" rx="3" fill="#7c3aed"></rect>
+<text x="100.78" y="312" text-anchor="middle" class="chart-value">1</text>
+<text x="100.78" y="336" text-anchor="middle" class="chart-label">1940s</text>
+<rect x="165.33" y="283.65" width="58.00" height="0.35" rx="3" fill="#0f766e"></rect>
+<text x="194.33" y="312" text-anchor="middle" class="chart-value">1</text>
+<text x="194.33" y="336" text-anchor="middle" class="chart-label">1950s</text>
+<rect x="258.89" y="280.83" width="58.00" height="3.17" rx="3" fill="#0f766e"></rect>
+<text x="287.89" y="312" text-anchor="middle" class="chart-value">9</text>
+<text x="287.89" y="336" text-anchor="middle" class="chart-label">1960s</text>
+<rect x="352.44" y="281.53" width="58.00" height="2.47" rx="3" fill="#0f766e"></rect>
+<rect x="352.44" y="281.18" width="58.00" height="0.35" rx="3" fill="#7c3aed"></rect>
+<text x="381.44" y="312" text-anchor="middle" class="chart-value">8</text>
+<text x="381.44" y="336" text-anchor="middle" class="chart-label">1970s</text>
+<rect x="446.00" y="283.29" width="58.00" height="0.71" rx="3" fill="#0f766e"></rect>
+<rect x="446.00" y="282.59" width="58.00" height="0.71" rx="3" fill="#dc6b3a"></rect>
+<text x="475.00" y="312" text-anchor="middle" class="chart-value">4</text>
+<text x="475.00" y="336" text-anchor="middle" class="chart-label">1980s</text>
+<rect x="539.55" y="272.36" width="58.00" height="11.64" rx="3" fill="#0f766e"></rect>
+<rect x="539.55" y="271.30" width="58.00" height="1.06" rx="3" fill="#2563eb"></rect>
+<rect x="539.55" y="270.59" width="58.00" height="0.71" rx="3" fill="#dc6b3a"></rect>
+<rect x="539.55" y="270.24" width="58.00" height="0.35" rx="3" fill="#7c3aed"></rect>
+<text x="568.56" y="312" text-anchor="middle" class="chart-value">40</text>
+<text x="568.56" y="336" text-anchor="middle" class="chart-label">1990s</text>
+<rect x="633.11" y="224.74" width="58.00" height="59.26" rx="3" fill="#0f766e"></rect>
+<rect x="633.11" y="218.03" width="58.00" height="6.70" rx="3" fill="#2563eb"></rect>
+<rect x="633.11" y="209.92" width="58.00" height="8.11" rx="3" fill="#dc6b3a"></rect>
+<rect x="633.11" y="197.57" width="58.00" height="12.35" rx="3" fill="#c2410c"></rect>
+<rect x="633.11" y="197.22" width="58.00" height="0.35" rx="3" fill="#0891b2"></rect>
+<text x="662.11" y="312" text-anchor="middle" class="chart-value">246</text>
+<text x="662.11" y="336" text-anchor="middle" class="chart-label">2000s</text>
+<rect x="726.66" y="137.25" width="58.00" height="146.75" rx="3" fill="#0f766e"></rect>
+<rect x="726.66" y="98.45" width="58.00" height="38.80" rx="3" fill="#2563eb"></rect>
+<rect x="726.66" y="74.46" width="58.00" height="23.99" rx="3" fill="#dc6b3a"></rect>
+<rect x="726.66" y="56.82" width="58.00" height="17.64" rx="3" fill="#7c3aed"></rect>
+<rect x="726.66" y="49.76" width="58.00" height="7.06" rx="3" fill="#c2410c"></rect>
+<rect x="726.66" y="49.06" width="58.00" height="0.71" rx="3" fill="#0891b2"></rect>
+<text x="755.67" y="312" text-anchor="middle" class="chart-value">669</text>
+<text x="755.67" y="336" text-anchor="middle" class="chart-label">2010s</text>
+<rect x="820.22" y="132.31" width="58.00" height="151.69" rx="3" fill="#0f766e"></rect>
+<rect x="820.22" y="120.67" width="58.00" height="11.64" rx="3" fill="#2563eb"></rect>
+<rect x="820.22" y="102.68" width="58.00" height="17.99" rx="3" fill="#dc6b3a"></rect>
+<rect x="820.22" y="94.57" width="58.00" height="8.11" rx="3" fill="#7c3aed"></rect>
+<rect x="820.22" y="92.45" width="58.00" height="2.12" rx="3" fill="#c2410c"></rect>
+<rect x="820.22" y="91.74" width="58.00" height="0.71" rx="3" fill="#0891b2"></rect>
+<text x="849.22" y="312" text-anchor="middle" class="chart-value">546</text>
+<text x="849.22" y="336" text-anchor="middle" class="chart-label">2020s</text>
+<rect x="54" y="344" width="10" height="10" rx="2" fill="#0f766e"></rect>
+<text x="70" y="354" class="legend-small">Other/Unclassifi</text>
+<rect x="196" y="344" width="10" height="10" rx="2" fill="#2563eb"></rect>
+<text x="212" y="354" class="legend-small">日系 Pop/Rock</text>
+<rect x="338" y="344" width="10" height="10" rx="2" fill="#dc6b3a"></rect>
+<text x="354" y="354" class="legend-small">C-Pop/Mandopop</text>
+<rect x="480" y="344" width="10" height="10" rx="2" fill="#7c3aed"></rect>
+<text x="496" y="354" class="legend-small">Anime/Game/Sound</text>
+<rect x="622" y="344" width="10" height="10" rx="2" fill="#c2410c"></rect>
+<text x="638" y="354" class="legend-small">Rock/Alternative</text>
+<rect x="764" y="344" width="10" height="10" rx="2" fill="#0891b2"></rect>
+<text x="780" y="354" class="legend-small">Pop</text>
+<line x1="54" y1="284" x2="896" y2="284" class="axis"></line>
+</svg></div>
+        <div class="panel"><svg class="chart heatmap" viewBox="0 0 1066 374" role="img" aria-label="Genre and decade heatmap">
+<text x="0" y="24" class="chart-title">Genre x 年代热力图</text>
+<text x="226.00" y="42" text-anchor="middle" class="chart-label">1940s</text>
+<text x="322.00" y="42" text-anchor="middle" class="chart-label">1950s</text>
+<text x="418.00" y="42" text-anchor="middle" class="chart-label">1960s</text>
+<text x="514.00" y="42" text-anchor="middle" class="chart-label">1970s</text>
+<text x="610.00" y="42" text-anchor="middle" class="chart-label">1980s</text>
+<text x="706.00" y="42" text-anchor="middle" class="chart-label">1990s</text>
+<text x="802.00" y="42" text-anchor="middle" class="chart-label">2000s</text>
+<text x="898.00" y="42" text-anchor="middle" class="chart-label">2010s</text>
+<text x="994.00" y="42" text-anchor="middle" class="chart-label">2020s</text>
+<text x="0" y="73" class="chart-label">Other/Unclassified</text>
+<rect x="178" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.082"></rect>
+<text x="318.00" y="70" text-anchor="middle" class="heat-value">1</text>
+<rect x="370" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.097"></rect>
+<text x="414.00" y="70" text-anchor="middle" class="heat-value">9</text>
+<rect x="466" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.093"></rect>
+<text x="510.00" y="70" text-anchor="middle" class="heat-value">7</text>
+<rect x="562" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.084"></rect>
+<text x="606.00" y="70" text-anchor="middle" class="heat-value">2</text>
+<rect x="658" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.143"></rect>
+<text x="702.00" y="70" text-anchor="middle" class="heat-value">33</text>
+<rect x="754" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.400"></rect>
+<text x="798.00" y="70" text-anchor="middle" class="heat-value">168</text>
+<rect x="850" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.873"></rect>
+<text x="894.00" y="70" text-anchor="middle" class="heat-value">416</text>
+<rect x="946" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.900"></rect>
+<text x="990.00" y="70" text-anchor="middle" class="heat-value">430</text>
+<text x="0" y="109" class="chart-label">日系 Pop/Rock</text>
+<rect x="178" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="466" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="562" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="658" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.086"></rect>
+<text x="702.00" y="106" text-anchor="middle" class="heat-value">3</text>
+<rect x="754" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.116"></rect>
+<text x="798.00" y="106" text-anchor="middle" class="heat-value">19</text>
+<rect x="850" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.290"></rect>
+<text x="894.00" y="106" text-anchor="middle" class="heat-value">110</text>
+<rect x="946" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.143"></rect>
+<text x="990.00" y="106" text-anchor="middle" class="heat-value">33</text>
+<text x="0" y="145" class="chart-label">C-Pop/Mandopop</text>
+<rect x="178" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="466" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="562" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.084"></rect>
+<text x="606.00" y="142" text-anchor="middle" class="heat-value">2</text>
+<rect x="658" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.084"></rect>
+<text x="702.00" y="142" text-anchor="middle" class="heat-value">2</text>
+<rect x="754" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.124"></rect>
+<text x="798.00" y="142" text-anchor="middle" class="heat-value">23</text>
+<rect x="850" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.210"></rect>
+<text x="894.00" y="142" text-anchor="middle" class="heat-value">68</text>
+<rect x="946" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.177"></rect>
+<text x="990.00" y="142" text-anchor="middle" class="heat-value">51</text>
+<text x="0" y="181" class="chart-label">Anime/Game/Soundtrack</text>
+<rect x="178" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.082"></rect>
+<text x="222.00" y="178" text-anchor="middle" class="heat-value">1</text>
+<rect x="274" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="466" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.082"></rect>
+<text x="510.00" y="178" text-anchor="middle" class="heat-value">1</text>
+<rect x="562" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="658" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.082"></rect>
+<text x="702.00" y="178" text-anchor="middle" class="heat-value">1</text>
+<rect x="754" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="850" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.175"></rect>
+<text x="894.00" y="178" text-anchor="middle" class="heat-value">50</text>
+<rect x="946" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.124"></rect>
+<text x="990.00" y="178" text-anchor="middle" class="heat-value">23</text>
+<text x="0" y="217" class="chart-label">Rock/Alternative</text>
+<rect x="178" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="466" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="562" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="658" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="754" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.147"></rect>
+<text x="798.00" y="214" text-anchor="middle" class="heat-value">35</text>
+<rect x="850" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.118"></rect>
+<text x="894.00" y="214" text-anchor="middle" class="heat-value">20</text>
+<rect x="946" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.091"></rect>
+<text x="990.00" y="214" text-anchor="middle" class="heat-value">6</text>
+<text x="0" y="253" class="chart-label">Pop</text>
+<rect x="178" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="466" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="562" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="658" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="754" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.082"></rect>
+<text x="798.00" y="250" text-anchor="middle" class="heat-value">1</text>
+<rect x="850" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.084"></rect>
+<text x="894.00" y="250" text-anchor="middle" class="heat-value">2</text>
+<rect x="946" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.084"></rect>
+<text x="990.00" y="250" text-anchor="middle" class="heat-value">2</text>
+<text x="0" y="289" class="chart-label">Classical/Instrumental</text>
+<rect x="178" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="466" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="562" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="658" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.082"></rect>
+<text x="702.00" y="286" text-anchor="middle" class="heat-value">1</text>
+<rect x="754" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="850" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.084"></rect>
+<text x="894.00" y="286" text-anchor="middle" class="heat-value">2</text>
+<rect x="946" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<text x="0" y="325" class="chart-label">Electronic</text>
+<rect x="178" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="466" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="562" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="658" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="754" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="850" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.082"></rect>
+<text x="894.00" y="322" text-anchor="middle" class="heat-value">1</text>
+<rect x="946" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.082"></rect>
+<text x="990.00" y="322" text-anchor="middle" class="heat-value">1</text>
+</svg></div>
+      </div>
+    </section>
+
+    <section class="grid-2">
+      <div class="panel"><svg class="chart" viewBox="0 0 920 606" role="img" aria-label="Top library artists">
+<text x="0" y="22" class="chart-title">Top library artists</text>
+<text x="0" y="62" class="chart-label">Rammstein</text>
+<rect x="230" y="46" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="46" width="600.00" height="18" rx="8" fill="#0f766e"></rect>
+<text x="844" y="61" class="chart-value">49</text>
+<text x="0" y="93" class="chart-label">BROCKHAMPTON</text>
+<rect x="230" y="77" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="77" width="563.27" height="18" rx="8" fill="#2563eb"></rect>
+<text x="844" y="92" class="chart-value">46</text>
+<text x="0" y="124" class="chart-label">Kevin Abstract</text>
+<rect x="230" y="108" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="108" width="440.82" height="18" rx="8" fill="#dc6b3a"></rect>
+<text x="844" y="123" class="chart-value">36</text>
+<text x="0" y="155" class="chart-label">The Weeknd</text>
+<rect x="230" y="139" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="139" width="355.10" height="18" rx="8" fill="#7c3aed"></rect>
+<text x="844" y="154" class="chart-value">29</text>
+<text x="0" y="186" class="chart-label">Hitorie</text>
+<rect x="230" y="170" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="170" width="330.61" height="18" rx="8" fill="#c2410c"></rect>
+<text x="844" y="185" class="chart-value">27</text>
+<text x="0" y="217" class="chart-label">Linkin Park</text>
+<rect x="230" y="201" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="201" width="318.37" height="18" rx="8" fill="#0891b2"></rect>
+<text x="844" y="216" class="chart-value">26</text>
+<text x="0" y="248" class="chart-label">No Party For Cao Dong</text>
+<rect x="230" y="232" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="232" width="293.88" height="18" rx="8" fill="#be123c"></rect>
+<text x="844" y="247" class="chart-value">24</text>
+<text x="0" y="279" class="chart-label">toe</text>
+<rect x="230" y="263" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="263" width="232.65" height="18" rx="8" fill="#65a30d"></rect>
+<text x="844" y="278" class="chart-value">19</text>
+<text x="0" y="310" class="chart-label">6LACK</text>
+<rect x="230" y="294" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="294" width="220.41" height="18" rx="8" fill="#9333ea"></rect>
+<text x="844" y="309" class="chart-value">18</text>
+<text x="0" y="341" class="chart-label">Bon Iver</text>
+<rect x="230" y="325" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="325" width="220.41" height="18" rx="8" fill="#ca8a04"></rect>
+<text x="844" y="340" class="chart-value">18</text>
+<text x="0" y="372" class="chart-label">My Chemical Romance</text>
+<rect x="230" y="356" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="356" width="208.16" height="18" rx="8" fill="#0f766e"></rect>
+<text x="844" y="371" class="chart-value">17</text>
+<text x="0" y="403" class="chart-label">Sheena Ringo</text>
+<rect x="230" y="387" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="387" width="208.16" height="18" rx="8" fill="#2563eb"></rect>
+<text x="844" y="402" class="chart-value">17</text>
+<text x="0" y="434" class="chart-label">Ameer Vann</text>
+<rect x="230" y="418" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="418" width="183.67" height="18" rx="8" fill="#dc6b3a"></rect>
+<text x="844" y="433" class="chart-value">15</text>
+<text x="0" y="465" class="chart-label">Bloodhound Gang</text>
+<rect x="230" y="449" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="449" width="183.67" height="18" rx="8" fill="#7c3aed"></rect>
+<text x="844" y="464" class="chart-value">15</text>
+<text x="0" y="496" class="chart-label">Sum 41</text>
+<rect x="230" y="480" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="480" width="183.67" height="18" rx="8" fill="#c2410c"></rect>
+<text x="844" y="495" class="chart-value">15</text>
+<text x="0" y="527" class="chart-label">Billie Eilish</text>
+<rect x="230" y="511" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="511" width="171.43" height="18" rx="8" fill="#0891b2"></rect>
+<text x="844" y="526" class="chart-value">14</text>
+<text x="0" y="558" class="chart-label">Drake</text>
+<rect x="230" y="542" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="542" width="159.18" height="18" rx="8" fill="#be123c"></rect>
+<text x="844" y="557" class="chart-value">13</text>
+<text x="0" y="589" class="chart-label">Green Day</text>
+<rect x="230" y="573" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="573" width="159.18" height="18" rx="8" fill="#65a30d"></rect>
+<text x="844" y="588" class="chart-value">13</text>
+</svg></div>
+      <div class="panel"><svg class="chart" viewBox="0 0 920 606" role="img" aria-label="Saved album artists">
+<text x="0" y="22" class="chart-title">Saved album artists</text>
+<text x="0" y="62" class="chart-label">BROCKHAMPTON</text>
+<rect x="230" y="46" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="46" width="600.00" height="18" rx="8" fill="#0f766e"></rect>
+<text x="844" y="61" class="chart-value">5</text>
+<text x="0" y="93" class="chart-label">Bon Iver</text>
+<rect x="230" y="77" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="77" width="360.00" height="18" rx="8" fill="#2563eb"></rect>
+<text x="844" y="92" class="chart-value">3</text>
+<text x="0" y="124" class="chart-label">kinohachi</text>
+<rect x="230" y="108" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="108" width="360.00" height="18" rx="8" fill="#dc6b3a"></rect>
+<text x="844" y="123" class="chart-value">3</text>
+<text x="0" y="155" class="chart-label">Sean Leon</text>
+<rect x="230" y="139" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="139" width="240.00" height="18" rx="8" fill="#7c3aed"></rect>
+<text x="844" y="154" class="chart-value">2</text>
+<text x="0" y="186" class="chart-label">God&#x27;s ALGORITHM</text>
+<rect x="230" y="170" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="170" width="240.00" height="18" rx="8" fill="#c2410c"></rect>
+<text x="844" y="185" class="chart-value">2</text>
+<text x="0" y="217" class="chart-label">toe</text>
+<rect x="230" y="201" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="201" width="240.00" height="18" rx="8" fill="#0891b2"></rect>
+<text x="844" y="216" class="chart-value">2</text>
+<text x="0" y="248" class="chart-label">ALIAKE</text>
+<rect x="230" y="232" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="232" width="240.00" height="18" rx="8" fill="#be123c"></rect>
+<text x="844" y="247" class="chart-value">2</text>
+<text x="0" y="279" class="chart-label">Prune Deer</text>
+<rect x="230" y="263" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="263" width="120.00" height="18" rx="8" fill="#65a30d"></rect>
+<text x="844" y="278" class="chart-value">1</text>
+<text x="0" y="310" class="chart-label">The Weeknd</text>
+<rect x="230" y="294" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="294" width="120.00" height="18" rx="8" fill="#9333ea"></rect>
+<text x="844" y="309" class="chart-value">1</text>
+<text x="0" y="341" class="chart-label">The Gentle Men</text>
+<rect x="230" y="325" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="325" width="120.00" height="18" rx="8" fill="#ca8a04"></rect>
+<text x="844" y="340" class="chart-value">1</text>
+<text x="0" y="372" class="chart-label">J. Cole</text>
+<rect x="230" y="356" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="356" width="120.00" height="18" rx="8" fill="#0f766e"></rect>
+<text x="844" y="371" class="chart-value">1</text>
+<text x="0" y="403" class="chart-label">A$AP Rocky</text>
+<rect x="230" y="387" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="387" width="120.00" height="18" rx="8" fill="#2563eb"></rect>
+<text x="844" y="402" class="chart-value">1</text>
+<text x="0" y="434" class="chart-label">Wesley Joseph</text>
+<rect x="230" y="418" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="418" width="120.00" height="18" rx="8" fill="#dc6b3a"></rect>
+<text x="844" y="433" class="chart-value">1</text>
+<text x="0" y="465" class="chart-label">Danny Brown</text>
+<rect x="230" y="449" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="449" width="120.00" height="18" rx="8" fill="#7c3aed"></rect>
+<text x="844" y="464" class="chart-value">1</text>
+<text x="0" y="496" class="chart-label">Twenty One Pilots</text>
+<rect x="230" y="480" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="480" width="120.00" height="18" rx="8" fill="#c2410c"></rect>
+<text x="844" y="495" class="chart-value">1</text>
+<text x="0" y="527" class="chart-label">Duckwrth</text>
+<rect x="230" y="511" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="511" width="120.00" height="18" rx="8" fill="#0891b2"></rect>
+<text x="844" y="526" class="chart-value">1</text>
+<text x="0" y="558" class="chart-label">Rich Brian</text>
+<rect x="230" y="542" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="542" width="120.00" height="18" rx="8" fill="#be123c"></rect>
+<text x="844" y="557" class="chart-value">1</text>
+<text x="0" y="589" class="chart-label">Isaia Huron</text>
+<rect x="230" y="573" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="573" width="120.00" height="18" rx="8" fill="#65a30d"></rect>
+<text x="844" y="588" class="chart-value">1</text>
+</svg></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Top raw genre tags</h2>
+      <p class="section-copy">保留细颗粒度的 raw genre tag，可以看到比 family 更具体的口味倾向。</p>
+      <div class="panel tag-cloud">
+        <span class="pill"><span>mandopop</span><strong> 146, 9.6%</strong></span>
+<span class="pill"><span>c-pop</span><strong> 142, 9.3%</strong></span>
+<span class="pill"><span>j-pop</span><strong> 122, 8.0%</strong></span>
+<span class="pill"><span>japanese music</span><strong> 80, 5.2%</strong></span>
+<span class="pill"><span>soundtrack</span><strong> 68, 4.5%</strong></span>
+<span class="pill"><span>anime or game music</span><strong> 63, 4.1%</strong></span>
+<span class="pill"><span>j-rock</span><strong> 55, 3.6%</strong></span>
+<span class="pill"><span>alternative rock</span><strong> 39, 2.6%</strong></span>
+<span class="pill"><span>pop punk</span><strong> 35, 2.3%</strong></span>
+<span class="pill"><span>vocaloid rock</span><strong> 27, 1.8%</strong></span>
+<span class="pill"><span>pop rock</span><strong> 20, 1.3%</strong></span>
+<span class="pill"><span>jazz rock</span><strong> 17, 1.1%</strong></span>
+<span class="pill"><span>emo</span><strong> 17, 1.1%</strong></span>
+<span class="pill"><span>anime</span><strong> 15, 1.0%</strong></span>
+<span class="pill"><span>punk rock</span><strong> 13, 0.9%</strong></span>
+<span class="pill"><span>japanese rock</span><strong> 11, 0.7%</strong></span>
+<span class="pill"><span>game music</span><strong> 6, 0.4%</strong></span>
+<span class="pill"><span>art pop</span><strong> 6, 0.4%</strong></span>
+<span class="pill"><span>dance pop</span><strong> 4, 0.3%</strong></span>
+<span class="pill"><span>r&amp;b</span><strong> 4, 0.3%</strong></span>
+<span class="pill"><span>singer-songwriter</span><strong> 4, 0.3%</strong></span>
+<span class="pill"><span>electropop</span><strong> 3, 0.2%</strong></span>
+<span class="pill"><span>modern classical</span><strong> 3, 0.2%</strong></span>
+<span class="pill"><span>ambient</span><strong> 3, 0.2%</strong></span>
+<span class="pill"><span>cantopop</span><strong> 2, 0.1%</strong></span>
+<span class="pill"><span>alternative metal</span><strong> 2, 0.1%</strong></span>
+<span class="pill"><span>visual kei</span><strong> 2, 0.1%</strong></span>
+<span class="pill"><span>chinese r&amp;b</span><strong> 2, 0.1%</strong></span>
+<span class="pill"><span>post-grunge</span><strong> 2, 0.1%</strong></span>
+<span class="pill"><span>vocaloid</span><strong> 2, 0.1%</strong></span>
+<span class="pill"><span>hyperpop</span><strong> 1, 0.1%</strong></span>
+<span class="pill"><span>garage rock</span><strong> 1, 0.1%</strong></span>
+<span class="pill"><span>folk rock</span><strong> 1, 0.1%</strong></span>
+<span class="pill"><span>jazz pop</span><strong> 1, 0.1%</strong></span>
+<span class="pill"><span>japanese electropop</span><strong> 1, 0.1%</strong></span>
+<span class="pill"><span>electronic rock</span><strong> 1, 0.1%</strong></span>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">按歌曲歌手分组</h2>
+      <div class="table-wrap "><table><thead><tr><th>Artist</th><th>Tracks</th><th>Share</th><th>Main genre</th><th>Main decade</th><th>Representative tracks</th></tr></thead><tbody><tr><td class="strong">Rammstein</td><td>49</td><td>3.2%</td><td>Other/Unclassified</td><td>2000s</td><td class="muted-cell">Du hast / Engel / Engel</td></tr>
+<tr><td class="strong">BROCKHAMPTON</td><td>41</td><td>2.7%</td><td>Other/Unclassified</td><td>2010s</td><td class="muted-cell">TOKYO / DEARLY DEPARTED / TONYA</td></tr>
+<tr><td class="strong">Kevin Abstract</td><td>28</td><td>1.8%</td><td>Other/Unclassified</td><td>2020s</td><td class="muted-cell">Running Out / Echo / Geezer</td></tr>
+<tr><td class="strong">Hitorie</td><td>27</td><td>1.8%</td><td>日系 Pop/Rock</td><td>2010s</td><td class="muted-cell">プリズムキューブ (2016.4.29 LIVE at STUDIO COAST) / 生きたがりの娘 / November</td></tr>
+<tr><td class="strong">Linkin Park</td><td>26</td><td>1.7%</td><td>Other/Unclassified</td><td>2000s</td><td class="muted-cell">Heavy Is the Crown / New Divide / Lying from You</td></tr>
+<tr><td class="strong">No Party For Cao Dong</td><td>24</td><td>1.6%</td><td>C-Pop/Mandopop</td><td>2010s</td><td class="muted-cell">床 / 缸 / 苦難精算師</td></tr>
+<tr><td class="strong">The Weeknd</td><td>23</td><td>1.5%</td><td>Other/Unclassified</td><td>2020s</td><td class="muted-cell">Escape From LA / Hardest To Love / Faith</td></tr>
+<tr><td class="strong">toe</td><td>17</td><td>1.1%</td><td>Other/Unclassified</td><td>2010s</td><td class="muted-cell">(AND) NOW I SEE THE LIGHT / two moons / グッドバイ_starRo Remix</td></tr>
+<tr><td class="strong">My Chemical Romance</td><td>17</td><td>1.1%</td><td>Rock/Alternative</td><td>2000s</td><td class="muted-cell">Cancer / The Ghost of You / Famous Last Words</td></tr>
+<tr><td class="strong">Sheena Ringo</td><td>16</td><td>1.0%</td><td>日系 Pop/Rock</td><td>2000s</td><td class="muted-cell">眩暈 / 熱愛発覚中 / 本能</td></tr>
+<tr><td class="strong">Sum 41</td><td>15</td><td>1.0%</td><td>Rock/Alternative</td><td>2000s</td><td class="muted-cell">Best Of Me / With Me / Pull The Curtain</td></tr>
+<tr><td class="strong">Bloodhound Gang</td><td>15</td><td>1.0%</td><td>Other/Unclassified</td><td>2010s</td><td class="muted-cell">The Bad Touch / Foxtrot Uniform Charlie Kilo / Uhn Tiss Uhn Tiss Uhn Tiss</td></tr>
+<tr><td class="strong">Billie Eilish</td><td>14</td><td>0.9%</td><td>Other/Unclassified</td><td>2020s</td><td class="muted-cell">BLUE / BIRDS OF A FEATHER / L’AMOUR DE MA VIE</td></tr>
+<tr><td class="strong">Ameer Vann</td><td>12</td><td>0.8%</td><td>Other/Unclassified</td><td>2020s</td><td class="muted-cell">gods thumb / Keep Your Distance / Pop Trunk</td></tr>
+<tr><td class="strong">Green Day</td><td>12</td><td>0.8%</td><td>Rock/Alternative</td><td>2000s</td><td class="muted-cell">Father of All... / Oh Yeah! / Wake Me up When September Ends</td></tr>
+<tr><td class="strong">Bon Iver</td><td>11</td><td>0.7%</td><td>Other/Unclassified</td><td>2010s</td><td class="muted-cell">Wash. / THINGS BEHIND THINGS BEHIND THINGS / S P E Y S I D E</td></tr>
+<tr><td class="strong">Toby Fox</td><td>11</td><td>0.7%</td><td>Anime/Game/Soundtrack</td><td>2010s</td><td class="muted-cell">Undertale / Fallen Down / ASGORE</td></tr>
+<tr><td class="strong">amazarashi</td><td>10</td><td>0.7%</td><td>日系 Pop/Rock</td><td>2010s</td><td class="muted-cell">さよならごっこ / おんなじ髑髏 / 命にふさわしい</td></tr>
+<tr><td class="strong">Marilyn Manson</td><td>10</td><td>0.7%</td><td>Other/Unclassified</td><td>2000s</td><td class="muted-cell">Putting Holes In Happiness / Tainted Love / The Nobodies</td></tr>
+<tr><td class="strong">Fizzy Blood</td><td>10</td><td>0.7%</td><td>Other/Unclassified</td><td>2010s</td><td class="muted-cell">Strangers / Cue to Leave / ADHD</td></tr>
+<tr><td class="strong">Sean Leon</td><td>9</td><td>0.6%</td><td>Other/Unclassified</td><td>2020s</td><td class="muted-cell">crown / mnu / sean leon must die</td></tr>
+<tr><td class="strong">EggPlantEgg</td><td>9</td><td>0.6%</td><td>C-Pop/Mandopop</td><td>2010s</td><td class="muted-cell">浪流連 / 浪流連 / 恰似你的溫柔</td></tr>
+<tr><td class="strong">Red</td><td>9</td><td>0.6%</td><td>Other/Unclassified</td><td>2010s</td><td class="muted-cell">Not Alone / Already Over / Darkest Part</td></tr>
+<tr><td class="strong">Drake</td><td>8</td><td>0.5%</td><td>Other/Unclassified</td><td>2010s</td><td class="muted-cell">Teenage Fever / Doing It Wrong / Marvins Room</td></tr>
+<tr><td class="strong">6LACK</td><td>8</td><td>0.5%</td><td>Other/Unclassified</td><td>2020s</td><td class="muted-cell">Sorry / Unfair / Since I Have A Lover</td></tr>
+<tr><td class="strong">万能青年旅店</td><td>8</td><td>0.5%</td><td>C-Pop/Mandopop</td><td>2010s</td><td class="muted-cell">十万嬉皮 / 泥河 / 杀死那个石家庄人</td></tr>
+<tr><td class="strong">the pillows</td><td>8</td><td>0.5%</td><td>Anime/Game/Soundtrack</td><td>2020s</td><td class="muted-cell">Bran-New Lovesong / LAST DINOSAUR / white summer and green bicycle, red hair with black guitar (Fool on cool version)</td></tr>
+<tr><td class="strong">Frank Ocean</td><td>7</td><td>0.5%</td><td>Other/Unclassified</td><td>2010s</td><td class="muted-cell">Pyramids / Chanel / Lost</td></tr>
+<tr><td class="strong">Gorillaz</td><td>7</td><td>0.5%</td><td>Other/Unclassified</td><td>2000s</td><td class="muted-cell">Empire Ants (feat. Little Dragon) / The God of Lying (feat. IDLES) / The Manifesto (feat. Trueno and Proof), Pt. 1</td></tr>
+<tr><td class="strong">Avril Lavigne</td><td>7</td><td>0.5%</td><td>Rock/Alternative</td><td>2000s</td><td class="muted-cell">Things I&#x27;ll Never Say / Losing Grip / Tomorrow</td></tr></tbody></table></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">按 Genre 分组</h2>
+      <div class="table-wrap "><table><thead><tr><th>Genre family</th><th>Tracks</th><th>Share</th><th>Peak decade</th><th>Top artists</th><th>Raw genre tags</th></tr></thead><tbody><tr><td class="strong">Other/Unclassified</td><td>1066</td><td>69.9%</td><td>2020s</td><td class="muted-cell">Rammstein (49), BROCKHAMPTON (41), Kevin Abstract (27), Linkin Park (25), The Weeknd (22)</td><td class="muted-cell"></td></tr>
+<tr><td class="strong">日系 Pop/Rock</td><td>165</td><td>10.8%</td><td>2010s</td><td class="muted-cell">Hitorie (27), Sheena Ringo (16), amazarashi (10), toe (6), Monkey Majik (4)</td><td class="muted-cell">j-pop (121), japanese music (80), j-rock (55), vocaloid rock (27), jazz rock (17), japanese rock (11)</td></tr>
+<tr><td class="strong">C-Pop/Mandopop</td><td>146</td><td>9.6%</td><td>2010s</td><td class="muted-cell">No Party For Cao Dong (24), EggPlantEgg (9), 万能青年旅店 (8), 曾軼可 (7), S.H.E (5)</td><td class="muted-cell">mandopop (146), c-pop (142), cantopop (2), chinese r&amp;b (2)</td></tr>
+<tr><td class="strong">Anime/Game/Soundtrack</td><td>76</td><td>5.0%</td><td>2010s</td><td class="muted-cell">Toby Fox (11), Mili (6), kensuke ushio (5), Sawano Hiroyuki (4), the pillows (4)</td><td class="muted-cell">soundtrack (68), anime or game music (63), anime (13), game music (6), art pop (6), electronic rock (1)</td></tr>
+<tr><td class="strong">Rock/Alternative</td><td>61</td><td>4.0%</td><td>2000s</td><td class="muted-cell">My Chemical Romance (17), Sum 41 (15), Green Day (12), Avril Lavigne (7), Imagine Dragons (4)</td><td class="muted-cell">alternative rock (38), pop punk (35), emo (17), pop rock (16), punk rock (13), post-grunge (2)</td></tr>
+<tr><td class="strong">Pop</td><td>5</td><td>0.3%</td><td>2020s</td><td class="muted-cell">Lady Gaga (2), Rihanna (1), Eminem (1), Taylor Swift (1)</td><td class="muted-cell">dance pop (4), electropop (2), r&amp;b (2), singer-songwriter (1), pop (1)</td></tr>
+<tr><td class="strong">Classical/Instrumental</td><td>3</td><td>0.2%</td><td>2010s</td><td class="muted-cell">Ryuichi Sakamoto (2), David Sylvian (1)</td><td class="muted-cell">modern classical (3), ambient (3)</td></tr>
+<tr><td class="strong">Electronic</td><td>2</td><td>0.1%</td><td>2020s</td><td class="muted-cell">Charli xcx (1), Reol (1)</td><td class="muted-cell">hyperpop (1), electropop (1), vocaloid (1), japanese electropop (1)</td></tr></tbody></table></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">完整 Library Artists</h2>
+      <p class="section-copy">这张表合并了 liked songs、可读取 playlist tracks、saved albums 和 followed artists，所以能看到哪些歌手不是 Liked Songs 里直接浮现的。</p>
+      <div class="table-wrap "><table><thead><tr><th>Artist</th><th>Sources</th><th>Liked</th><th>Playlist tracks</th><th>Saved albums</th><th>Followed</th><th>Representative tracks</th></tr></thead><tbody><tr><td class="strong">Rammstein</td><td>Followed Artists; Liked Songs</td><td>49</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Du hast; Engel; Deutschland; Mein Herz brennt; Ich will; Keine Lust; Amerika; Ich tu dir weh</td></tr>
+<tr><td class="strong">Kevin Abstract</td><td>Followed Artists; Liked Songs; Playlist Tracks; Saved Albums</td><td>34</td><td>1</td><td>1</td><td>True</td><td class="muted-cell">Running Out; Echo; Doggy (feat. Love Spells and Truly Young); Geezer; Copy; The Introduction; H-Town; Red Light</td></tr>
+<tr><td class="strong">The Weeknd</td><td>Followed Artists; Liked Songs; Playlist Tracks; Saved Albums</td><td>27</td><td>1</td><td>1</td><td>True</td><td class="muted-cell">Escape From LA; Hardest To Love; Faith; RATHER LIE (with The Weeknd); Nomads (feat. The Weeknd); Out of Time; In Vein; Double Fantasy (with Future)</td></tr>
+<tr><td class="strong">Hitorie</td><td>Followed Artists; Liked Songs</td><td>27</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">プリズムキューブ (2016.4.29 LIVE at STUDIO COAST); 生きたがりの娘; November; ワンミーツハー; ピューパ・シネマ; なぜなぜ; 輪郭; 青</td></tr>
+<tr><td class="strong">No Party For Cao Dong</td><td>Followed Artists; Liked Songs</td><td>24</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">床; 缸; 苦難精算師; 白日夢; 醜; 情歌; 我們; 山海</td></tr>
+<tr><td class="strong">6LACK</td><td>Followed Artists; Liked Songs; Playlist Tracks</td><td>11</td><td>7</td><td>0</td><td>True</td><td class="muted-cell">Calling My Phone; Love Is An Action; Sorry; Unfair; Since I Have A Lover; OTW; Tit For Tat; Workin On Me</td></tr>
+<tr><td class="strong">Sheena Ringo</td><td>Followed Artists; Liked Songs</td><td>17</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">２〇４５; 眩暈; 熱愛発覚中; 本能; 意識 - 戦後最大級ノ暴風雨圏内歌唱; 浴室; マ・シェリ; 枯葉</td></tr>
+<tr><td class="strong">toe</td><td>Followed Artists; Liked Songs; Saved Albums</td><td>17</td><td>0</td><td>2</td><td>True</td><td class="muted-cell">(AND) NOW I SEE THE LIGHT; two moons; グッドバイ_starRo Remix; NOW I SEE THE LIGHT; サニーボーイ・ラプソディ; CLOSE TO YOU; F_A_R; Mother (feat. ILL-BOSSTINO &amp; 5lack)</td></tr>
+<tr><td class="strong">Bloodhound Gang</td><td>Followed Artists; Liked Songs</td><td>15</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">The Bad Touch; Foxtrot Uniform Charlie Kilo; Uhn Tiss Uhn Tiss Uhn Tiss; Altogether Ooky; No Hard Feelings; Fire Water Burn; Lift Your Head Up High (And Blow Your Brains Out); The Ballad Of Chasey Lain</td></tr>
+<tr><td class="strong">Bon Iver</td><td>Followed Artists; Liked Songs; Saved Albums</td><td>15</td><td>0</td><td>3</td><td>True</td><td class="muted-cell">Monster; Wash.; THINGS BEHIND THINGS BEHIND THINGS; S P E Y S I D E; Boys Of Faith (feat. Bon Iver); Heart of Gold (with Bon Iver); Minnesota, WI; Holocene</td></tr>
+<tr><td class="strong">Sum 41</td><td>Followed Artists; Liked Songs</td><td>15</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Best Of Me; With Me; Pull The Curtain; Crash; Speak Of The Devil; Never There; Underclass Hero; The Jester</td></tr>
+<tr><td class="strong">Ameer Vann</td><td>Followed Artists; Liked Songs; Saved Albums</td><td>14</td><td>0</td><td>1</td><td>True</td><td class="muted-cell">gods thumb; H-Town; Red Light; Keep Your Distance; Pop Trunk; GENESIS; YEAH; IN THE BUILDING</td></tr>
+<tr><td class="strong">Toby Fox</td><td>Followed Artists; Liked Songs</td><td>12</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Undertale; Fallen Down; ASGORE; MEGALOVANIA; Heartache; sans.; Pale Rain; Song That Might Play When You Fight Sans</td></tr>
+<tr><td class="strong">amazarashi</td><td>Followed Artists; Liked Songs</td><td>10</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">さよならごっこ; おんなじ髑髏; 命にふさわしい; 風に流離い; 僕が死のうと思ったのは (Live at Spotify on Stage in MIDNIGHT SONIC); 空っぽの空に潰される; 空っぽの空に潰される　Starlight Ver.; 感情道路七号線</td></tr>
+<tr><td class="strong">EggPlantEgg</td><td>Followed Artists; Liked Songs</td><td>9</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">浪流連; 恰似你的溫柔; 閣愛妳一擺; 孤獨的人我們一起出發; 波克比的愛; 窒息; 浪子回頭</td></tr>
+<tr><td class="strong">Red</td><td>Followed Artists; Liked Songs</td><td>9</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Not Alone; Already Over; Darkest Part; Buried Beneath; Let It Burn; Pieces; The War We Made; Sever</td></tr>
+<tr><td class="strong">Sean Leon</td><td>Followed Artists; Liked Songs; Playlist Tracks; Saved Albums</td><td>5</td><td>4</td><td>2</td><td>True</td><td class="muted-cell">crown; mnu; sean leon must die; OXYGEN; Matthew in the Middle (feat. Daniel Caesar); free; boyfriend (good time); MILLENIAL CHILD</td></tr>
+<tr><td class="strong">Dominic Fike</td><td>Followed Artists; Liked Songs</td><td>8</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Epilogue; Sandman; Doggy (feat. Love Spells and Truly Young); Geezer; hi grace; King of Everything; Frisky; Superstar Sh*t</td></tr>
+<tr><td class="strong">Frank Ocean</td><td>Followed Artists; Liked Songs</td><td>7</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Pyramids; Chanel; Lost; DHL; Nights; Pink + White; In My Room</td></tr>
+<tr><td class="strong">Gorillaz</td><td>Followed Artists; Liked Songs</td><td>7</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Empire Ants (feat. Little Dragon); The God of Lying (feat. IDLES); The Manifesto (feat. Trueno and Proof), Pt. 1; DARE (feat. Shaun Ryder &amp; Roses Gabor); November Has Come; She&#x27;s My Collar (feat. Kali Uchis); All Alone</td></tr>
+<tr><td class="strong">The Strokes</td><td>Followed Artists; Liked Songs</td><td>7</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Ize of the World; You Only Live Once; Someday; 12:51; Reptilia; The Adults Are Talking; Ode To The Mets</td></tr>
+<tr><td class="strong">Eminem</td><td>Followed Artists; Liked Songs</td><td>6</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Not Afraid; Love The Way You Lie; Mockingbird; When I&#x27;m Gone; Space Bound; Till I Collapse</td></tr>
+<tr><td class="strong">J. Cole</td><td>Followed Artists; Liked Songs; Playlist Tracks; Saved Albums</td><td>2</td><td>4</td><td>1</td><td>True</td><td class="muted-cell">The Let Out; Work Out; h u n g e r . o n . h i l l s i d e (with Bas); No Role Modelz</td></tr>
+<tr><td class="strong">Don Toliver</td><td>Followed Artists; Liked Songs; Playlist Tracks</td><td>3</td><td>2</td><td>0</td><td>True</td><td class="muted-cell">Around Me (feat. Don Toliver); BOGUS; Madonna; FaceTime (feat. Don Toliver); TMU</td></tr>
+<tr><td class="strong">Joji</td><td>Followed Artists; Liked Songs</td><td>5</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">YEAH RIGHT; Glimpse of Us; SLOW DANCING IN THE DARK; ATTENTION; Introvert (feat. Joji)</td></tr>
+<tr><td class="strong">Lobé</td><td>Followed Artists; Liked Songs; Playlist Tracks</td><td>1</td><td>4</td><td>0</td><td>True</td><td class="muted-cell">LIE; Champs Elysees; Put It On God; Second Home; GIO</td></tr>
+<tr><td class="strong">The Gentle Men</td><td>Followed Artists; Liked Songs; Saved Albums</td><td>5</td><td>0</td><td>1</td><td>True</td><td class="muted-cell">Time Travel; Ghosts; Enemy; Here&#x27;s to Us; Perfect Oblivion</td></tr>
+<tr><td class="strong">Childish Gambino</td><td>Followed Artists; Liked Songs</td><td>4</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Bonfire; Heartbeat; Redbone; Lithonia</td></tr>
+<tr><td class="strong">Monster Florence</td><td>Followed Artists; Liked Songs</td><td>4</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Deck Of Cards - Live at Abbey Road Studios; Somewhere (Interlude); Spaceman; Deck Of Cards</td></tr>
+<tr><td class="strong">Ray Vaughn</td><td>Followed Artists; Liked Songs; Playlist Tracks</td><td>3</td><td>1</td><td>0</td><td>True</td><td class="muted-cell">Hit and Run (feat. AZ Chike); FLAT shasta (feat. Ash Leone); EAST CHATT (feat. Isaiah Rashad)</td></tr>
+<tr><td class="strong">Duckwrth</td><td>Followed Artists; Liked Songs; Saved Albums</td><td>3</td><td>0</td><td>1</td><td>True</td><td class="muted-cell">Hurricane J.I.M.; Kiss U Right Now; Grey Scale</td></tr>
+<tr><td class="strong">Toro y Moi</td><td>Followed Artists; Liked Songs</td><td>3</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Images (feat. 454 &amp; Toro y Moi); Madonna; Heaven</td></tr>
+<tr><td class="strong">Cosmo Sheldrake</td><td>Followed Artists; Liked Songs</td><td>2</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Stop The Music - Live; Old Ocean - Live</td></tr>
+<tr><td class="strong">Dave</td><td>Followed Artists; Playlist Tracks</td><td>0</td><td>2</td><td>0</td><td>True</td><td class="muted-cell">The Boy Who Played the Harp; Sprinter</td></tr>
+<tr><td class="strong">FKA twigs</td><td>Followed Artists; Liked Songs</td><td>2</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">careless (feat. daniel caesar); Ego Death (feat. Kanye West, FKA twigs &amp; Skrillex)</td></tr>
+<tr><td class="strong">Kota the Friend</td><td>Followed Artists; Liked Songs; Saved Albums</td><td>2</td><td>0</td><td>1</td><td>True</td><td class="muted-cell">Legal Sins; Colorado</td></tr>
+<tr><td class="strong">MAN WITH A MISSION</td><td>Followed Artists; Liked Songs</td><td>2</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">FLY AGAIN; Dead End in Tokyo</td></tr>
+<tr><td class="strong">Prune Deer</td><td>Followed Artists; Liked Songs; Saved Albums</td><td>2</td><td>0</td><td>1</td><td>True</td><td class="muted-cell">By Air - feat. Ashley Tsang, LK-072; Lichen</td></tr>
+<tr><td class="strong">V.I.C</td><td>Followed Artists; Playlist Tracks</td><td>0</td><td>2</td><td>0</td><td>True</td><td class="muted-cell">40 Doors; Wasteman</td></tr>
+<tr><td class="strong">黃奇斌</td><td>Followed Artists; Liked Songs</td><td>2</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">虛華的夢想是一支刀; 若無你我欲去佗位</td></tr>
+<tr><td class="strong">Danny Brown</td><td>Followed Artists; Liked Songs; Saved Albums</td><td>1</td><td>0</td><td>1</td><td>True</td><td class="muted-cell">BUZZCUT (feat. Danny Brown)</td></tr>
+<tr><td class="strong">Geezer</td><td>Followed Artists; Liked Songs</td><td>1</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">Doggy (feat. Love Spells and Truly Young)</td></tr>
+<tr><td class="strong">jefe?</td><td>Followed Artists; Liked Songs</td><td>1</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">on solid ground?</td></tr>
+<tr><td class="strong">JOBA</td><td>Followed Artists; Liked Songs</td><td>1</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">People Need People</td></tr>
+<tr><td class="strong">OGRE YOU ASSHOLE</td><td>Followed Artists; Liked Songs</td><td>1</td><td>0</td><td>0</td><td>True</td><td class="muted-cell">レースのコース</td></tr>
+<tr><td class="strong">6ix9ine</td><td>Followed Artists</td><td>0</td><td>0</td><td>0</td><td>True</td><td class="muted-cell"></td></tr>
+<tr><td class="strong">BROCKHAMPTON</td><td>Liked Songs; Saved Albums</td><td>41</td><td>0</td><td>5</td><td>False</td><td class="muted-cell">TOKYO; DEARLY DEPARTED; TONYA; SAN MARCOS; SUNNY; MAN ON THE MOON; PALACE; ANIMAL</td></tr>
+<tr><td class="strong">Linkin Park</td><td>Liked Songs</td><td>26</td><td>0</td><td>0</td><td>False</td><td class="muted-cell">Heavy Is the Crown; New Divide; Lying from You; Nobody&#x27;s Listening; Leave Out All The Rest; IN MY REMAINS; CASTLE OF GLASS; Runaway</td></tr>
+<tr><td class="strong">My Chemical Romance</td><td>Liked Songs</td><td>17</td><td>0</td><td>0</td><td>False</td><td class="muted-cell">Cancer; The Ghost of You; Famous Last Words; The Light Behind Your Eyes; I Don&#x27;t Love You; House of Wolves; Welcome to the Black Parade; Teenagers</td></tr>
+<tr><td class="strong">Billie Eilish</td><td>Liked Songs</td><td>14</td><td>0</td><td>0</td><td>False</td><td class="muted-cell">BLUE; BIRDS OF A FEATHER; L’AMOUR DE MA VIE; SKINNY; WILDFLOWER; What Was I Made For? [From The Motion Picture &quot;Barbie&quot;]; No Time To Die; lovely (with Khalid)</td></tr>
+<tr><td class="strong">Drake</td><td>Liked Songs; Playlist Tracks</td><td>10</td><td>3</td><td>0</td><td>False</td><td class="muted-cell">Teenage Fever; Doing It Wrong; Marvins Room; Road Trips; Stuck; Stay Schemin; MR RECOUP; Passionfruit</td></tr>
+<tr><td class="strong">Green Day</td><td>Liked Songs</td><td>13</td><td>0</td><td>0</td><td>False</td><td class="muted-cell">Father of All...; Oh Yeah!; Wake Me up When September Ends; Junkies on a High; Graffitia; 21 Guns; American Idiot; Give Me Novacaine / She&#x27;s a Rebel</td></tr>
+<tr><td class="strong">Fizzy Blood</td><td>Liked Songs</td><td>10</td><td>0</td><td>0</td><td>False</td><td class="muted-cell">Strangers; Cue to Leave; ADHD; Black Sheep; January Sun; Animals; CFO; Patience</td></tr>
+<tr><td class="strong">Kendrick Lamar</td><td>Liked Songs; Playlist Tracks</td><td>3</td><td>7</td><td>0</td><td>False</td><td class="muted-cell">tv off (feat. lefty gunplay); Pray For Me; Hair Down; reincarnated; wacced out murals; heart pt. 6; hey now (feat. dody6); Autumn Leaves (feat. Kendrick Lamar)</td></tr>
+<tr><td class="strong">Marilyn Manson</td><td>Liked Songs</td><td>10</td><td>0</td><td>0</td><td>False</td><td class="muted-cell">Putting Holes In Happiness; Tainted Love; The Nobodies; This Is The New S**t; Born Villain; Running To The Edge Of The World; Lamb Of God; Coma Black</td></tr>
+<tr><td class="strong">Daniel Caesar</td><td>Liked Songs</td><td>9</td><td>0</td><td>0</td><td>False</td><td class="muted-cell">Cool; Let Me Go; CYANIDE; Root of all Evil; Valentina (feat. Rick Ross) - Bonus; Matthew in the Middle (feat. Daniel Caesar); Get You (feat. Kali Uchis); careless (feat. daniel caesar)</td></tr>
+<tr><td class="strong">Eluveitie</td><td>Liked Songs</td><td>8</td><td>0</td><td>0</td><td>False</td><td class="muted-cell">Slanias Song; Inis Mona; Gwydion; Luxtos; Thousandfold; Ategnatos; A Rose for Epona</td></tr>
+<tr><td class="strong">Kanye West</td><td>Liked Songs; Playlist Tracks</td><td>6</td><td>2</td><td>0</td><td>False</td><td class="muted-cell">Monster; Flashing Lights; Stronger; Ego Death (feat. Kanye West, FKA twigs &amp; Skrillex); Mixed Personalities (feat. Kanye West); Put On; No Apologies; Welcome To Heartbreak</td></tr>
+<tr><td class="strong">the pillows</td><td>Liked Songs</td><td>8</td><td>0</td><td>0</td><td>False</td><td class="muted-cell">Bran-New Lovesong; LAST DINOSAUR; white summer and green bicycle, red hair with black guitar (Fool on cool version); Ride on Shooting Star; Hybrid Rainbow; Thank you, my twilight; Pain (A-7); Star overhead</td></tr>
+<tr><td class="strong">万能青年旅店</td><td>Liked Songs</td><td>8</td><td>0</td><td>0</td><td>False</td><td class="muted-cell">十万嬉皮; 泥河; 杀死那个石家庄人; 揪心的玩笑与漫长的白日梦; 秦皇岛; 採石; 山雀; 大石碎胸口</td></tr></tbody></table></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">所有 Playlists</h2>
+      <div class="table-wrap "><table><thead><tr><th>#</th><th>Name</th><th>Owner</th><th>Tracks</th><th>Public</th><th>Collaborative</th><th>Spotify</th></tr></thead><tbody><tr><td>1</td><td class="strong">Hip Hop Time</td><td>AtaONFIRE</td><td></td><td>True</td><td>False</td><td><a href="https://open.spotify.com/playlist/3MntAK2RmG5taWMZfN34KC">open</a></td></tr>
+<tr><td>2</td><td class="strong">Metronome 40-300 BPM</td><td>Tensz</td><td></td><td>True</td><td>False</td><td><a href="https://open.spotify.com/playlist/53QfpXcHbPE4fEoNbtwqZf">open</a></td></tr>
+<tr><td>3</td><td class="strong">Pieces of me</td><td>cs-783</td><td></td><td>True</td><td>False</td><td><a href="https://open.spotify.com/playlist/7Jl5djwnavDxMuTwbifHSO">open</a></td></tr>
+<tr><td>4</td><td class="strong">SonyPark展Vaundy</td><td>たいが</td><td></td><td>True</td><td>False</td><td><a href="https://open.spotify.com/playlist/5RbmB7VfSeWajN2AX6uHJt">open</a></td></tr>
+<tr><td>5</td><td class="strong">Ultra Street Fighter IV</td><td>Wagzev</td><td></td><td>True</td><td>False</td><td><a href="https://open.spotify.com/playlist/2v26Ki8EEZ9DTAJGrmk9mC">open</a></td></tr>
+<tr><td>6</td><td class="strong">Funky guitar riffs &amp; slapping basslines</td><td>Atreyu Haesevoets</td><td></td><td>True</td><td>False</td><td><a href="https://open.spotify.com/playlist/2HrssR8jKf2cuJTDdiSanb">open</a></td></tr>
+<tr><td>7</td><td class="strong">Chill Alternative/ Indie Hip-Hop and Rap</td><td>Anna</td><td></td><td>True</td><td>False</td><td><a href="https://open.spotify.com/playlist/4nQ3cs8Sji1LjhVHFdLqyi">open</a></td></tr>
+<tr><td>8</td><td class="strong">Lofi Girl - beats to relax/study to</td><td>Lofi Girl</td><td></td><td>True</td><td>False</td><td><a href="https://open.spotify.com/playlist/0vvXsWCC9xrXsKd4FyS8kM">open</a></td></tr>
+<tr><td>9</td><td class="strong">Blues on the Rocks</td><td>AtaONFIRE</td><td></td><td>True</td><td>False</td><td><a href="https://open.spotify.com/playlist/65V2pAFrc5R2FWJqYFsQq4">open</a></td></tr></tbody></table></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Saved Albums</h2>
+      <div class="table-wrap "><table><thead><tr><th>#</th><th>Album</th><th>Artists</th><th>Release</th><th>Tracks</th><th>Added</th><th>Spotify</th></tr></thead><tbody><tr><td>1</td><td class="strong">20,000 STEPS</td><td>Sean Leon; God&#x27;s ALGORITHM</td><td>2026-06-26</td><td>2</td><td>2026-06-27T15:10:43Z</td><td><a href="https://open.spotify.com/album/3k7VQAhUVxC66Hrz8lHnsf">open</a></td></tr>
+<tr><td>2</td><td class="strong">角林 The Antler Woods</td><td>Prune Deer</td><td>2026-06-24</td><td>8</td><td>2026-06-24T03:27:46Z</td><td><a href="https://open.spotify.com/album/3r4pncSbdy2Ki3QsJsrOL6">open</a></td></tr>
+<tr><td>3</td><td class="strong">Kiss Land</td><td>The Weeknd</td><td>2013-09-10</td><td>10</td><td>2026-06-04T07:49:34Z</td><td><a href="https://open.spotify.com/album/3hhDpPtCFuQbppwYgsVhMO">open</a></td></tr>
+<tr><td>4</td><td class="strong">Time Travel</td><td>The Gentle Men</td><td>2026-03-13</td><td>1</td><td>2026-03-16T03:59:25Z</td><td><a href="https://open.spotify.com/album/43JQRRDVXQm0xaAEwR9MK6">open</a></td></tr>
+<tr><td>5</td><td class="strong">The Fall-Off</td><td>J. Cole</td><td>2026-02-06</td><td>24</td><td>2026-02-06T05:23:01Z</td><td><a href="https://open.spotify.com/album/4jI9SU1GmpIVhHMuYZuvX7">open</a></td></tr>
+<tr><td>6</td><td class="strong">crown</td><td>Sean Leon; God&#x27;s ALGORITHM</td><td>2026-01-30</td><td>2</td><td>2026-01-30T02:41:32Z</td><td><a href="https://open.spotify.com/album/1nNueSOnKTfRm9TdvcJLQw">open</a></td></tr>
+<tr><td>7</td><td class="strong">Don&#x27;t Be Dumb</td><td>A$AP Rocky</td><td>2026-01-16</td><td>17</td><td>2026-01-17T15:05:13Z</td><td><a href="https://open.spotify.com/album/4itKk52E9ZCdWUQcFAkud9">open</a></td></tr>
+<tr><td>8</td><td class="strong">Peace Of Mind</td><td>Wesley Joseph; Danny Brown</td><td>2026-01-08</td><td>2</td><td>2026-01-10T09:48:49Z</td><td><a href="https://open.spotify.com/album/2glAiy9pJLk6x42sYeQlOi">open</a></td></tr>
+<tr><td>9</td><td class="strong">Breach</td><td>Twenty One Pilots</td><td>2025-09-12</td><td>13</td><td>2025-09-18T03:06:54Z</td><td><a href="https://open.spotify.com/album/1El3k8dU3sKyoGUeuyrolH">open</a></td></tr>
+<tr><td>10</td><td class="strong">Wyl&#x27; Out</td><td>Duckwrth</td><td>2025-09-10</td><td>1</td><td>2025-09-10T18:17:23Z</td><td><a href="https://open.spotify.com/album/3ZOKbLPlNuv498mbhe14r6">open</a></td></tr>
+<tr><td>11</td><td class="strong">WHERE IS MY HEAD?</td><td>Rich Brian</td><td>2025-08-15</td><td>15</td><td>2025-08-17T12:55:52Z</td><td><a href="https://open.spotify.com/album/4KdSMovHLQrLV7lGM7Z0af">open</a></td></tr>
+<tr><td>12</td><td class="strong">LIST CRAWLER</td><td>Isaia Huron</td><td>2025-06-25</td><td>1</td><td>2025-07-12T17:09:22Z</td><td><a href="https://open.spotify.com/album/2km4VZR9JGOtm4COxD6E39">open</a></td></tr>
+<tr><td>13</td><td class="strong">NO RAP ON SUNDAY</td><td>Kota the Friend</td><td>2025-06-27</td><td>14</td><td>2025-06-27T14:52:58Z</td><td><a href="https://open.spotify.com/album/3h1mhf59nhAhNcg68ITKmM">open</a></td></tr>
+<tr><td>14</td><td class="strong">Blush</td><td>Kevin Abstract</td><td>2025-06-27</td><td>18</td><td>2025-06-26T11:00:00Z</td><td><a href="https://open.spotify.com/album/1aUFNUsjLeUwhJZjBZpoKa">open</a></td></tr>
+<tr><td>15</td><td class="strong">Talk To Me The Same</td><td>Black Hibiscus</td><td>2025-06-06</td><td>1</td><td>2025-06-17T18:08:53Z</td><td><a href="https://open.spotify.com/album/1ms0sdyuNVH6eyYoe85X6I">open</a></td></tr>
+<tr><td>16</td><td class="strong">SUPERBLOOM</td><td>Weston Estate</td><td>2025-06-06</td><td>7</td><td>2025-06-07T11:58:06Z</td><td><a href="https://open.spotify.com/album/1hjKhAUMaMBkTz1RVngugO">open</a></td></tr>
+<tr><td>17</td><td class="strong">ROADRUNNER: NEW LIGHT, NEW MACHINE</td><td>BROCKHAMPTON</td><td>2021-04-09</td><td>13</td><td>2025-04-17T04:13:51Z</td><td><a href="https://open.spotify.com/album/6sPcgDto5EI6EBPc2jhDC7">open</a></td></tr>
+<tr><td>18</td><td class="strong">SABLE, fABLE</td><td>Bon Iver</td><td>2025-04-11</td><td>13</td><td>2025-04-11T04:00:00Z</td><td><a href="https://open.spotify.com/album/3L3UjpXtom6T0Plt1j6l1T">open</a></td></tr>
+<tr><td>19</td><td class="strong">BRAT</td><td>Charli xcx</td><td>2024-06-07</td><td>15</td><td>2025-03-26T12:17:10Z</td><td><a href="https://open.spotify.com/album/2lIZef4lzdvZkiiCzvPKj7">open</a></td></tr>
+<tr><td>20</td><td class="strong">SATURATION II</td><td>BROCKHAMPTON</td><td>2017-08-25</td><td>16</td><td>2025-01-06T07:04:07Z</td><td><a href="https://open.spotify.com/album/0XnqQzdSFAml08XZoRt1St">open</a></td></tr>
+<tr><td>21</td><td class="strong">ALL-AMERICAN TRASH</td><td>BROCKHAMPTON</td><td>2016-04-11</td><td>13</td><td>2024-12-05T18:09:15Z</td><td><a href="https://open.spotify.com/album/48IFY1wERoy8Lac5FuXHpc">open</a></td></tr>
+<tr><td>22</td><td class="strong">SATURATION</td><td>BROCKHAMPTON</td><td>2017-06-09</td><td>17</td><td>2024-12-05T18:09:06Z</td><td><a href="https://open.spotify.com/album/67smHJOf5YlFwad6dAlppm">open</a></td></tr>
+<tr><td>23</td><td class="strong">SATURATION III</td><td>BROCKHAMPTON</td><td>2017-12-15</td><td>15</td><td>2024-12-05T18:08:47Z</td><td><a href="https://open.spotify.com/album/5c2AzoNyr46fCQM5d8mxE0">open</a></td></tr>
+<tr><td>24</td><td class="strong">WOOF</td><td>Ameer Vann</td><td>2024-08-09</td><td>11</td><td>2024-11-17T04:39:01Z</td><td><a href="https://open.spotify.com/album/1cd31ugjZFV9Hy4dEFhmbs">open</a></td></tr>
+<tr><td>25</td><td class="strong">CHROMAKOPIA</td><td>Tyler, The Creator</td><td>2024-10-28</td><td>14</td><td>2024-11-02T17:22:01Z</td><td><a href="https://open.spotify.com/album/0U28P0QVB1QRxpqp5IHOlH">open</a></td></tr>
+<tr><td>26</td><td class="strong">Now I See the Light</td><td>toe</td><td>2024-07-10</td><td>10</td><td>2024-07-11T08:01:44Z</td><td><a href="https://open.spotify.com/album/0QQ0WLIvOiZd8jiUUSvUWc">open</a></td></tr>
+<tr><td>27</td><td class="strong">LOVE</td><td>Ayaka Hirahara</td><td>2016-04-27</td><td>10</td><td>2024-03-27T17:34:11Z</td><td><a href="https://open.spotify.com/album/0O1VsNTReCvnOCNmdvxQUW">open</a></td></tr>
+<tr><td>28</td><td class="strong">GNARKILL</td><td>Gnarkill</td><td>2003-01-01</td><td>9</td><td>2022-12-25T00:19:26Z</td><td><a href="https://open.spotify.com/album/6oDWgYK83Z5hRSxxvYSO27">open</a></td></tr>
+<tr><td>29</td><td class="strong">Rapid Promotion</td><td>ALIAKE</td><td>2021-11-01</td><td>7</td><td>2022-12-15T05:03:20Z</td><td><a href="https://open.spotify.com/album/0Nli32XTHfZllrDG5YcXFX">open</a></td></tr>
+<tr><td>30</td><td class="strong">i,i</td><td>Bon Iver</td><td>2019-08-09</td><td>13</td><td>2022-12-15T05:03:20Z</td><td><a href="https://open.spotify.com/album/0aldG5AoqOUDkEbsGtI9TW">open</a></td></tr>
+<tr><td>31</td><td class="strong">The Magic Whip</td><td>Blur</td><td>2015-04-20</td><td>12</td><td>2022-12-15T05:03:20Z</td><td><a href="https://open.spotify.com/album/0nSzBICzQHea8grwfqa5Gb">open</a></td></tr>
+<tr><td>32</td><td class="strong">Cyberpunk 2077 - Original Score</td><td>Marcin Przybyłowicz; P.T. Adamczyk; Paul Leonard-Morgan</td><td>2020-12-11</td><td>37</td><td>2022-12-15T05:03:20Z</td><td><a href="https://open.spotify.com/album/1B2QrHbMox8vPXUY7rXAFp">open</a></td></tr>
+<tr><td>33</td><td class="strong">Bon Iver, Bon Iver</td><td>Bon Iver</td><td>2011-06-21</td><td>10</td><td>2022-12-15T05:03:20Z</td><td><a href="https://open.spotify.com/album/2LpfNj3vB5rOXfaawLcOBg">open</a></td></tr>
+<tr><td>34</td><td class="strong">宙 -SORA-</td><td>kinohachi</td><td>2003</td><td>10</td><td>2022-12-15T05:03:20Z</td><td><a href="https://open.spotify.com/album/2Wwhc74BoK49HBldNIs8sZ">open</a></td></tr>
+<tr><td>35</td><td class="strong">The die is cast</td><td>ALIAKE</td><td>2018-12-28</td><td>11</td><td>2022-12-15T05:03:20Z</td><td><a href="https://open.spotify.com/album/2ZVGLrxv7dWeP2j9ZKsuAe">open</a></td></tr>
+<tr><td>36</td><td class="strong">ENISHI</td><td>kinohachi</td><td>2018-11-23</td><td>17</td><td>2022-12-15T05:03:20Z</td><td><a href="https://open.spotify.com/album/2wF0s0ATPjDUyvatlVQb1M">open</a></td></tr>
+<tr><td>37</td><td class="strong">粋 -IKI-</td><td>kinohachi</td><td>2004</td><td>11</td><td>2022-12-15T05:03:20Z</td><td><a href="https://open.spotify.com/album/4Wc3VDwTjxjRlAzaW6pgWI">open</a></td></tr>
+<tr><td>38</td><td class="strong">独演会 &quot;DOKU-EN-KAI&quot;</td><td>toe</td><td>2021-03-05</td><td>7</td><td>2022-12-15T05:03:20Z</td><td><a href="https://open.spotify.com/album/5p59BCQuT0r9O2syVIyOPm">open</a></td></tr></tbody></table></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Followed Artists</h2>
+      <div class="table-wrap "><table><thead><tr><th>#</th><th>Artist</th><th>Genres</th><th>Popularity</th><th>Followers</th><th>Spotify</th></tr></thead><tbody><tr><td>1</td><td class="strong">Monster Florence</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/2HSKYZUpx7rynGKcOI46e9">open</a></td></tr>
+<tr><td>2</td><td class="strong">Prune Deer</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/0V6yRXUk7qTPizan3VkUPU">open</a></td></tr>
+<tr><td>3</td><td class="strong">The Weeknd</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/1Xyo4u8uXC1ZmMpatF05PJ">open</a></td></tr>
+<tr><td>4</td><td class="strong">Joji</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/3MZsBdqDrRTJihTHQrO6Dq">open</a></td></tr>
+<tr><td>5</td><td class="strong">Frank Ocean</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/2h93pZq0e7k5yf4dywlkpM">open</a></td></tr>
+<tr><td>6</td><td class="strong">Don Toliver</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/4Gso3d4CscCijv0lmajZWs">open</a></td></tr>
+<tr><td>7</td><td class="strong">Dave</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/6Ip8FS7vWT1uKkJSweANQK">open</a></td></tr>
+<tr><td>8</td><td class="strong">J. Cole</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/6l3HvQ5sa6mXTsMTB19rO5">open</a></td></tr>
+<tr><td>9</td><td class="strong">Lobé</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/7eSBqOodVNWcEmBdjvp04V">open</a></td></tr>
+<tr><td>10</td><td class="strong">V.I.C</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/5fCJ5gYcUcJeDkrsCevigg">open</a></td></tr>
+<tr><td>11</td><td class="strong">Geezer</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/1Px3z0pAOyBLWpcFPb5VYH">open</a></td></tr>
+<tr><td>12</td><td class="strong">Ameer Vann</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/7kIbB1pdDyehFj8aNgfzfH">open</a></td></tr>
+<tr><td>13</td><td class="strong">Kevin Abstract</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/07EcmJpfAday8xGkslfanE">open</a></td></tr>
+<tr><td>14</td><td class="strong">6LACK</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/4IVAbR2w4JJNJDDRFP3E83">open</a></td></tr>
+<tr><td>15</td><td class="strong">Ray Vaughn</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/4yYYCSCDUTypErQMZv5iSg">open</a></td></tr>
+<tr><td>16</td><td class="strong">MAN WITH A MISSION</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/3NTbOmzlj2cL86XFuDVFvZ">open</a></td></tr>
+<tr><td>17</td><td class="strong">Toro y Moi</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/6O4EGCCb6DoIiR6B1QCQgp">open</a></td></tr>
+<tr><td>18</td><td class="strong">Childish Gambino</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/73sIBHcqh3Z3NyqHKZ7FOL">open</a></td></tr>
+<tr><td>19</td><td class="strong">黃奇斌</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/7td0pZH6CpEX2f36bU1H2D">open</a></td></tr>
+<tr><td>20</td><td class="strong">amazarashi</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/6T4K8YuFc0JPDrYgABbxao">open</a></td></tr>
+<tr><td>21</td><td class="strong">JOBA</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/3vKT7DifMxpG9CWR7c8eC8">open</a></td></tr>
+<tr><td>22</td><td class="strong">Dominic Fike</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/6USv9qhCn6zfxlBQIYJ9qs">open</a></td></tr>
+<tr><td>23</td><td class="strong">Kota the Friend</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/2AfU5LYBVCiCtuCCfM7uVX">open</a></td></tr>
+<tr><td>24</td><td class="strong">Eminem</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/7dGJo4pcD2V6oG8kP0tJRR">open</a></td></tr>
+<tr><td>25</td><td class="strong">Danny Brown</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/7aA592KWirLsnfb5ulGWvU">open</a></td></tr>
+<tr><td>26</td><td class="strong">Sean Leon</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/5dtbsNKCK6Q9yZzdhZpaqW">open</a></td></tr>
+<tr><td>27</td><td class="strong">Duckwrth</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/6I3MElirhT5t6Kf7p0hGk9">open</a></td></tr>
+<tr><td>28</td><td class="strong">jefe?</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/6Px1BLOTyqNycbFZqeZdwC">open</a></td></tr>
+<tr><td>29</td><td class="strong">toe</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/0rpKM0MniNkXM1SLSglYUZ">open</a></td></tr>
+<tr><td>30</td><td class="strong">FKA twigs</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/6nB0iY1cjSY1KyhYyuIIKH">open</a></td></tr>
+<tr><td>31</td><td class="strong">The Strokes</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/0epOFNiUfyON9EYx7Tpr6V">open</a></td></tr>
+<tr><td>32</td><td class="strong">Bon Iver</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/4LEiUm1SRbFMgfqnQTwUbQ">open</a></td></tr>
+<tr><td>33</td><td class="strong">The Gentle Men</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/3EYR1xDK06J61ois35DHbS">open</a></td></tr>
+<tr><td>34</td><td class="strong">Red</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/01crEa9G3pNpXZ5m7wuHOk">open</a></td></tr>
+<tr><td>35</td><td class="strong">OGRE YOU ASSHOLE</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/0X9vdekJ6sIKcUvwIgVsjW">open</a></td></tr>
+<tr><td>36</td><td class="strong">Hitorie</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/0ouUO7PZ76vjBJytaT2Na0">open</a></td></tr>
+<tr><td>37</td><td class="strong">Sum 41</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/0qT79UgT5tY4yudH9VfsdT">open</a></td></tr>
+<tr><td>38</td><td class="strong">Sheena Ringo</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/2XjqKvB2Xz9IdyjWPIHaXi">open</a></td></tr>
+<tr><td>39</td><td class="strong">Gorillaz</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/3AA28KZvwAUcZuOKwyblJQ">open</a></td></tr>
+<tr><td>40</td><td class="strong">No Party For Cao Dong</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/3HXSUfI76zVZk71UMAeVfp">open</a></td></tr>
+<tr><td>41</td><td class="strong">Toby Fox</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/57DlMWmbVIf2ssJ8QBpBau">open</a></td></tr>
+<tr><td>42</td><td class="strong">EggPlantEgg</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/6g641431O1Xkl7HAs2yFEg">open</a></td></tr>
+<tr><td>43</td><td class="strong">Cosmo Sheldrake</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/6hV6oxGLeLFw17DGjIPkYD">open</a></td></tr>
+<tr><td>44</td><td class="strong">Bloodhound Gang</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/6nDLku5uL3ou60kvCGZorh">open</a></td></tr>
+<tr><td>45</td><td class="strong">Rammstein</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/6wWVKhxIU2cEi0K81v7HvP">open</a></td></tr>
+<tr><td>46</td><td class="strong">6ix9ine</td><td class="muted-cell"></td><td></td><td></td><td><a href="https://open.spotify.com/artist/7gZfnEnfiaHzxARJ2LeXrf">open</a></td></tr></tbody></table></div>
+    </section>
+
+    <h2>Skipped Playlist Track Reads</h2><div class="table-wrap"><table><thead><tr><th>Name</th><th>Playlist ID</th><th>Error</th></tr></thead><tbody><tr><td>Metronome 40-300 BPM</td><td>53QfpXcHbPE4fEoNbtwqZf</td><td>HTTP 403 from https://api.spotify.com/v1/playlists/53QfpXcHbPE4fEoNbtwqZf/items?limit=50&amp;offset=0&amp;additional_types=track: {&quot;error&quot;: {&quot;status&quot;: 403, &quot;message&quot;: &quot;Forbidden&quot; } }</td></tr><tr><td>Pieces of me</td><td>7Jl5djwnavDxMuTwbifHSO</td><td>HTTP 403 from https://api.spotify.com/v1/playlists/7Jl5djwnavDxMuTwbifHSO/items?limit=50&amp;offset=0&amp;additional_types=track: {&quot;error&quot;: {&quot;status&quot;: 403, &quot;message&quot;: &quot;Forbidden&quot; } }</td></tr><tr><td>SonyPark展Vaundy</td><td>5RbmB7VfSeWajN2AX6uHJt</td><td>HTTP 403 from https://api.spotify.com/v1/playlists/5RbmB7VfSeWajN2AX6uHJt/items?limit=50&amp;offset=0&amp;additional_types=track: {&quot;error&quot;: {&quot;status&quot;: 403, &quot;message&quot;: &quot;Forbidden&quot; } }</td></tr><tr><td>Ultra Street Fighter IV</td><td>2v26Ki8EEZ9DTAJGrmk9mC</td><td>HTTP 403 from https://api.spotify.com/v1/playlists/2v26Ki8EEZ9DTAJGrmk9mC/items?limit=50&amp;offset=0&amp;additional_types=track: {&quot;error&quot;: {&quot;status&quot;: 403, &quot;message&quot;: &quot;Forbidden&quot; } }</td></tr><tr><td>Funky guitar riffs &amp; slapping basslines</td><td>2HrssR8jKf2cuJTDdiSanb</td><td>HTTP 403 from https://api.spotify.com/v1/playlists/2HrssR8jKf2cuJTDdiSanb/items?limit=50&amp;offset=0&amp;additional_types=track: {&quot;error&quot;: {&quot;status&quot;: 403, &quot;message&quot;: &quot;Forbidden&quot; } }</td></tr><tr><td>Chill Alternative/ Indie Hip-Hop and Rap</td><td>4nQ3cs8Sji1LjhVHFdLqyi</td><td>HTTP 403 from https://api.spotify.com/v1/playlists/4nQ3cs8Sji1LjhVHFdLqyi/items?limit=50&amp;offset=0&amp;additional_types=track: {&quot;error&quot;: {&quot;status&quot;: 403, &quot;message&quot;: &quot;Forbidden&quot; } }</td></tr><tr><td>Lofi Girl - beats to relax/study to</td><td>0vvXsWCC9xrXsKd4FyS8kM</td><td>HTTP 403 from https://api.spotify.com/v1/playlists/0vvXsWCC9xrXsKd4FyS8kM/items?limit=50&amp;offset=0&amp;additional_types=track: {&quot;error&quot;: {&quot;status&quot;: 403, &quot;message&quot;: &quot;Forbidden&quot; } }</td></tr></tbody></table></div>
+
+    <section>
+      <h2 class="section-title">方法说明</h2>
+      <div class="panel flat narrative">
+        <p>歌曲分析输入行数 1550，按 track identity 去重后移除 26 行。</p>
+        <p>Genre 优先使用可得的 Spotify artist genres；缺失时沿用旧报告里的本地 artist override 和文字脚本推断。</p>
+        <p>HTML 不嵌入 Spotify token 或 client secret。</p>
+      </div>
+    </section>
+
+    <div class="footer">Generated locally from Spotify API. Published as a static GitHub Pages report.</div>
+  </main>
+</body>
+</html>
