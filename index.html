@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>我喜欢的音乐 + Liked Songs - Spotify playlist analysis</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f7f5ef;
+      --surface: #fffdf7;
+      --surface-2: #eee9de;
+      --ink: #20201d;
+      --muted: #66645d;
+      --line: rgba(32, 32, 29, 0.12);
+      --accent: #0f766e;
+      --accent-2: #dc6b3a;
+      --chart-track: rgba(32, 32, 29, 0.09);
+      --shadow: 0 18px 48px rgba(34, 31, 25, 0.09);
+      --radius: 8px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141512;
+        --surface: #1c1e1a;
+        --surface-2: #262821;
+        --ink: #f0eee7;
+        --muted: #b7b0a2;
+        --line: rgba(240, 238, 231, 0.14);
+        --accent: #2dd4bf;
+        --accent-2: #fb8b61;
+        --chart-track: rgba(240, 238, 231, 0.11);
+        --shadow: 0 18px 48px rgba(0, 0, 0, 0.26);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(135deg, rgba(15, 118, 110, 0.09), transparent 34%),
+        linear-gradient(315deg, rgba(220, 107, 58, 0.12), transparent 38%),
+        var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+    a { color: inherit; }
+    .page { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 56px; }
+    .hero {
+      min-height: 420px;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 28px;
+      align-items: stretch;
+      padding: 28px 0 20px;
+    }
+    .hero-main, .panel, .metric, details {
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .hero-main { padding: 34px; display: flex; flex-direction: column; justify-content: space-between; }
+    .kicker {
+      margin: 0 0 18px;
+      color: var(--accent);
+      font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 0.08em;
+    }
+    h1 { margin: 0; max-width: 820px; font-size: clamp(38px, 7vw, 76px); line-height: 0.96; letter-spacing: 0; }
+    .subtitle { margin: 22px 0 0; color: var(--muted); max-width: 68ch; font-size: 17px; }
+    .meta-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+    .meta-strip span, .pill {
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      border-radius: 999px;
+      padding: 7px 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .hero-side { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .metric { padding: 22px; min-height: 126px; }
+    .metric .label { color: var(--muted); font-size: 13px; }
+    .metric .value { margin-top: 10px; font-size: 34px; font-weight: 780; line-height: 1; }
+    .metric .note { margin-top: 9px; color: var(--muted); font-size: 13px; }
+    section { margin-top: 24px; }
+    .section-title { margin: 0 0 14px; font-size: 28px; line-height: 1.1; }
+    .section-copy { margin: 0 0 18px; color: var(--muted); max-width: 76ch; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .panel { padding: 22px; overflow: hidden; }
+    .panel.flat { box-shadow: none; }
+    .narrative { display: grid; gap: 12px; }
+    .narrative p { margin: 0; padding-left: 14px; border-left: 3px solid var(--accent); color: var(--muted); }
+    .chart { width: 100%; height: auto; display: block; overflow: visible; }
+    .chart-title { fill: var(--ink); font: 750 20px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .chart-label { fill: var(--muted); font: 12px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .chart-value, .heat-value { fill: var(--ink); font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .legend-small { fill: var(--muted); font: 11px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .bar-track { fill: var(--chart-track); }
+    .axis { stroke: var(--line); stroke-width: 1; }
+    .donut-number { fill: var(--ink); font: 800 34px ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .donut-caption { fill: var(--muted); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill { display: inline-flex; gap: 8px; align-items: center; }
+    .pill strong { color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+    table { width: 100%; min-width: 850px; border-collapse: collapse; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; font-weight: 700; background: var(--surface-2); }
+    td { font-size: 14px; }
+    tr:last-child td { border-bottom: 0; }
+    .strong { font-weight: 760; }
+    .muted-cell { color: var(--muted); }
+    details { padding: 0; overflow: hidden; box-shadow: none; }
+    summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 18px; padding: 16px 18px; font-weight: 760; }
+    summary::-webkit-details-marker { display: none; }
+    details[open] summary { border-bottom: 1px solid var(--line); }
+    .detail-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 18px; padding: 16px 18px; }
+    .detail-grid h4 { margin: 0 0 8px; }
+    .detail-grid p { margin: 0; color: var(--muted); }
+    .method { color: var(--muted); font-size: 13px; }
+    .footer { margin-top: 28px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 860px) {
+      .page { width: min(100% - 22px, 1180px); padding-top: 12px; }
+      .hero, .grid-2, .grid-3, .detail-grid { grid-template-columns: 1fr; }
+      .hero-main { padding: 24px; }
+      h1 { font-size: clamp(34px, 12vw, 54px); }
+      .metric { min-height: auto; }
+    }
+    @media print {
+      body { background: var(--surface); }
+      .hero-main, .panel, .metric, details { box-shadow: none; }
+      .page { width: 100%; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-main">
+        <div>
+          <p class="kicker">SPOTIFY COLLECTION ANALYSIS</p>
+          <h1>我喜欢的音乐 + Liked Songs</h1>
+          <p class="subtitle">这份集合去重后共有 2751 首有效歌曲，主歌手去重后是 1199 位。 主导年代是 2010s，主导 genre family 是 日系 Pop/Rock。 Top 10 主歌手合计占 12.5%，同时有 804 位主歌手只出现 1 次。 原始输入共 2862 行，按 track_id 去重后移除了 111 行重复记录。 发行年份跨度从 1965 到 2026，中位发行年约为 2015。</p>
+        </div>
+        <div class="meta-strip">
+          <span>Generated 2026-07-06 16:09:41</span>
+          <span>Unique tracks 2751</span>
+          <span>Input rows 2862</span>
+          <span>Skipped 0</span>
+          <span>Source Spotify API</span>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="metric"><div class="label">Tracks</div><div class="value">2751</div><div class="note">有效歌曲数</div></div>
+        <div class="metric"><div class="label">Top artist</div><div class="value">Aimer</div><div class="note">主歌手口径</div></div>
+        <div class="metric"><div class="label">Top genre</div><div class="value">日系 Pop/Rock</div><div class="note">按 primary artist genre 归类</div></div>
+      </div>
+    </section>
+
+    <section class="grid-3">
+      <div class="metric"><div class="label">Primary artists</div><div class="value">1199</div><div class="note">只按第一歌手计算</div></div>
+      <div class="metric"><div class="label">All artists</div><div class="value">1458</div><div class="note">合作歌手也计入</div></div>
+      <div class="metric"><div class="label">Median release year</div><div class="value">2015</div><div class="note">发行年份中位数</div></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">核心结论</h2>
+      <div class="panel narrative">
+        <p>这份集合去重后共有 2751 首有效歌曲，主歌手去重后是 1199 位。</p><p>主导年代是 2010s，主导 genre family 是 日系 Pop/Rock。</p><p>Top 10 主歌手合计占 12.5%，同时有 804 位主歌手只出现 1 次。</p><p>原始输入共 2862 行，按 track_id 去重后移除了 111 行重复记录。</p><p>发行年份跨度从 1965 到 2026，中位发行年约为 2015。</p>
+        <p>Genre 优先读取 Spotify artist metadata。如果当前 API 返回空 genre，则使用本地 artist override 作为 fallback。多艺人歌曲主分组优先使用 primary artist。</p>
+        <p>Genre source: local_artist_override (1222), text_script_inference (799), unclassified (714), local_collaborator_override (16)</p>
+      </div>
+    </section>
+
+    <section class="grid-2">
+      <div class="panel"><svg class="chart donut-chart" viewBox="0 0 700 310" role="img" aria-label="来源分布">
+<text x="0" y="24" class="chart-title">来源分布</text>
+<circle cx="150" cy="150" r="104" fill="none" stroke="var(--chart-track)" stroke-width="34"></circle>
+<path d="M 47.830 169.422 A 104 104 0 1 0 150.000 46.000" fill="none" stroke="#0f766e" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 147.625 46.027 A 104 104 0 0 0 47.830 169.422" fill="none" stroke="#2563eb" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 150.000 46.000 A 104 104 0 0 0 147.625 46.027" fill="none" stroke="#dc6b3a" stroke-width="34" stroke-linecap="round"></path>
+<text x="150" y="146" text-anchor="middle" class="donut-number">2751</text>
+<text x="150" y="172" text-anchor="middle" class="donut-caption">tracks</text>
+<rect x="330" y="61" width="12" height="12" rx="3" fill="#0f766e"></rect>
+<text x="354" y="72" class="chart-label">Playlist only</text>
+<text x="650" y="72" text-anchor="end" class="chart-value">1981 (72.0%)</text>
+<rect x="330" y="83" width="12" height="12" rx="3" fill="#2563eb"></rect>
+<text x="354" y="94" class="chart-label">Liked only</text>
+<text x="650" y="94" text-anchor="end" class="chart-value">760 (27.6%)</text>
+<rect x="330" y="105" width="12" height="12" rx="3" fill="#dc6b3a"></rect>
+<text x="354" y="116" class="chart-label">Both</text>
+<text x="650" y="116" text-anchor="end" class="chart-value">10 (0.4%)</text>
+</svg></div>
+      <div class="panel narrative">
+        <p>Playlist rows: 2092</p>
+        <p>Liked Songs rows: 770</p>
+        <p>Duplicate rows removed by track_id: 111</p>
+      </div>
+    </section>
+
+    <section class="grid-2">
+      <div class="panel"><svg class="chart donut-chart" viewBox="0 0 700 310" role="img" aria-label="Genre family share">
+<text x="0" y="24" class="chart-title">Genre family share</text>
+<circle cx="150" cy="150" r="104" fill="none" stroke="var(--chart-track)" stroke-width="34"></circle>
+<path d="M 215.167 231.051 A 104 104 0 0 0 150.000 46.000" fill="none" stroke="#0f766e" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 65.190 210.194 A 104 104 0 0 0 215.167 231.051" fill="none" stroke="#2563eb" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 56.120 105.251 A 104 104 0 0 0 65.190 210.194" fill="none" stroke="#dc6b3a" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 96.414 60.868 A 104 104 0 0 0 56.120 105.251" fill="none" stroke="#7c3aed" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 109.530 54.197 A 104 104 0 0 0 96.414 60.868" fill="none" stroke="#c2410c" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 122.997 49.567 A 104 104 0 0 0 109.530 54.197" fill="none" stroke="#0891b2" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 136.734 46.850 A 104 104 0 0 0 122.997 49.567" fill="none" stroke="#be123c" stroke-width="34" stroke-linecap="round"></path>
+<path d="M 140.748 46.412 A 104 104 0 0 0 136.734 46.850" fill="none" stroke="#65a30d" stroke-width="34" stroke-linecap="round"></path>
+<text x="150" y="146" text-anchor="middle" class="donut-number">2751</text>
+<text x="150" y="172" text-anchor="middle" class="donut-caption">tracks</text>
+<rect x="330" y="61" width="12" height="12" rx="3" fill="#0f766e"></rect>
+<text x="354" y="72" class="chart-label">日系 Pop/Rock</text>
+<text x="650" y="72" text-anchor="end" class="chart-value">1079 (39.2%)</text>
+<rect x="330" y="83" width="12" height="12" rx="3" fill="#2563eb"></rect>
+<text x="354" y="94" class="chart-label">Other/Unclassified</text>
+<text x="650" y="94" text-anchor="end" class="chart-value">714 (26.0%)</text>
+<rect x="330" y="105" width="12" height="12" rx="3" fill="#dc6b3a"></rect>
+<text x="354" y="116" class="chart-label">C-Pop/Mandopop</text>
+<text x="650" y="116" text-anchor="end" class="chart-value">465 (16.9%)</text>
+<rect x="330" y="127" width="12" height="12" rx="3" fill="#7c3aed"></rect>
+<text x="354" y="138" class="chart-label">Anime/Game/Soundtrack</text>
+<text x="650" y="138" text-anchor="end" class="chart-value">256 (9.3%)</text>
+<rect x="330" y="149" width="12" height="12" rx="3" fill="#c2410c"></rect>
+<text x="354" y="160" class="chart-label">Pop</text>
+<text x="650" y="160" text-anchor="end" class="chart-value">62 (2.3%)</text>
+<rect x="330" y="171" width="12" height="12" rx="3" fill="#0891b2"></rect>
+<text x="354" y="182" class="chart-label">Rock/Alternative</text>
+<text x="650" y="182" text-anchor="end" class="chart-value">60 (2.2%)</text>
+<rect x="330" y="193" width="12" height="12" rx="3" fill="#be123c"></rect>
+<text x="354" y="204" class="chart-label">Electronic</text>
+<text x="650" y="204" text-anchor="end" class="chart-value">59 (2.1%)</text>
+<rect x="330" y="215" width="12" height="12" rx="3" fill="#65a30d"></rect>
+<text x="354" y="226" class="chart-label">Classical/Instrumental</text>
+<text x="650" y="226" text-anchor="end" class="chart-value">17 (0.6%)</text>
+</svg></div>
+      <div class="panel"><svg class="chart" viewBox="0 0 920 606" role="img" aria-label="Top primary artists">
+<text x="0" y="22" class="chart-title">Top primary artists</text>
+<text x="0" y="62" class="chart-label">Aimer</text>
+<rect x="230" y="46" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="46" width="600.00" height="18" rx="8" fill="#0f766e"></rect>
+<text x="844" y="61" class="chart-value">72</text>
+<text x="0" y="93" class="chart-label">Do As Infinity</text>
+<rect x="230" y="77" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="77" width="375.00" height="18" rx="8" fill="#2563eb"></rect>
+<text x="844" y="92" class="chart-value">45</text>
+<text x="0" y="124" class="chart-label">BUMP OF CHICKEN</text>
+<rect x="230" y="108" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="108" width="375.00" height="18" rx="8" fill="#dc6b3a"></rect>
+<text x="844" y="123" class="chart-value">45</text>
+<text x="0" y="155" class="chart-label">Perfume</text>
+<rect x="230" y="139" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="139" width="250.00" height="18" rx="8" fill="#7c3aed"></rect>
+<text x="844" y="154" class="chart-value">30</text>
+<text x="0" y="186" class="chart-label">[Alexandros]</text>
+<rect x="230" y="170" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="170" width="250.00" height="18" rx="8" fill="#c2410c"></rect>
+<text x="844" y="185" class="chart-value">30</text>
+<text x="0" y="217" class="chart-label">Stefanie Sun</text>
+<rect x="230" y="201" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="201" width="225.00" height="18" rx="8" fill="#0891b2"></rect>
+<text x="844" y="216" class="chart-value">27</text>
+<text x="0" y="248" class="chart-label">Jay Chou</text>
+<rect x="230" y="232" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="232" width="216.67" height="18" rx="8" fill="#be123c"></rect>
+<text x="844" y="247" class="chart-value">26</text>
+<text x="0" y="279" class="chart-label">supercell</text>
+<rect x="230" y="263" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="263" width="191.67" height="18" rx="8" fill="#65a30d"></rect>
+<text x="844" y="278" class="chart-value">23</text>
+<text x="0" y="310" class="chart-label">Cheer Chen</text>
+<rect x="230" y="294" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="294" width="191.67" height="18" rx="8" fill="#9333ea"></rect>
+<text x="844" y="309" class="chart-value">23</text>
+<text x="0" y="341" class="chart-label">Sawano Hiroyuki</text>
+<rect x="230" y="325" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="325" width="183.33" height="18" rx="8" fill="#ca8a04"></rect>
+<text x="844" y="340" class="chart-value">22</text>
+<text x="0" y="372" class="chart-label">Monkey Majik</text>
+<rect x="230" y="356" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="356" width="175.00" height="18" rx="8" fill="#0f766e"></rect>
+<text x="844" y="371" class="chart-value">21</text>
+<text x="0" y="403" class="chart-label">Sheena Ringo</text>
+<rect x="230" y="387" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="387" width="166.67" height="18" rx="8" fill="#2563eb"></rect>
+<text x="844" y="402" class="chart-value">20</text>
+<text x="0" y="434" class="chart-label">ONE OK ROCK</text>
+<rect x="230" y="418" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="418" width="166.67" height="18" rx="8" fill="#dc6b3a"></rect>
+<text x="844" y="433" class="chart-value">20</text>
+<text x="0" y="465" class="chart-label">SEKAI NO OWARI</text>
+<rect x="230" y="449" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="449" width="158.33" height="18" rx="8" fill="#7c3aed"></rect>
+<text x="844" y="464" class="chart-value">19</text>
+<text x="0" y="496" class="chart-label">F.I.R.</text>
+<rect x="230" y="480" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="480" width="158.33" height="18" rx="8" fill="#c2410c"></rect>
+<text x="844" y="495" class="chart-value">19</text>
+<text x="0" y="527" class="chart-label">MAN WITH A MISSION</text>
+<rect x="230" y="511" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="511" width="150.00" height="18" rx="8" fill="#0891b2"></rect>
+<text x="844" y="526" class="chart-value">18</text>
+<text x="0" y="558" class="chart-label">牛奶@咖啡</text>
+<rect x="230" y="542" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="542" width="133.33" height="18" rx="8" fill="#be123c"></rect>
+<text x="844" y="557" class="chart-value">16</text>
+<text x="0" y="589" class="chart-label">Summer Lei</text>
+<rect x="230" y="573" width="600" height="18" rx="8" class="bar-track"></rect>
+<rect x="230" y="573" width="133.33" height="18" rx="8" fill="#65a30d"></rect>
+<text x="844" y="588" class="chart-value">16</text>
+</svg></div>
+    </section>
+
+    <section class="grid-2">
+      <div class="panel"><svg class="chart" viewBox="0 0 920 310" role="img" aria-label="发行年代分布">
+<text x="0" y="24" class="chart-title">发行年代分布</text>
+<rect x="70.00" y="257.86" width="66.00" height="0.14" rx="8" fill="#0f766e"></rect>
+<text x="103.00" y="249.86" text-anchor="middle" class="chart-value">1</text>
+<text x="103.00" y="292" text-anchor="middle" class="chart-label">1960s</text>
+<rect x="192.00" y="256.92" width="66.00" height="1.08" rx="8" fill="#2563eb"></rect>
+<text x="225.00" y="248.92" text-anchor="middle" class="chart-value">8</text>
+<text x="225.00" y="292" text-anchor="middle" class="chart-label">1970s</text>
+<rect x="314.00" y="256.65" width="66.00" height="1.35" rx="8" fill="#dc6b3a"></rect>
+<text x="347.00" y="248.65" text-anchor="middle" class="chart-value">10</text>
+<text x="347.00" y="292" text-anchor="middle" class="chart-label">1980s</text>
+<rect x="436.00" y="251.92" width="66.00" height="6.08" rx="8" fill="#7c3aed"></rect>
+<text x="469.00" y="243.92" text-anchor="middle" class="chart-value">45</text>
+<text x="469.00" y="292" text-anchor="middle" class="chart-label">1990s</text>
+<rect x="558.00" y="185.40" width="66.00" height="72.60" rx="8" fill="#c2410c"></rect>
+<text x="591.00" y="177.40" text-anchor="middle" class="chart-value">537</text>
+<text x="591.00" y="292" text-anchor="middle" class="chart-label">2000s</text>
+<rect x="680.00" y="46.00" width="66.00" height="212.00" rx="8" fill="#0891b2"></rect>
+<text x="713.00" y="38.00" text-anchor="middle" class="chart-value">1568</text>
+<text x="713.00" y="292" text-anchor="middle" class="chart-label">2010s</text>
+<rect x="802.00" y="179.31" width="66.00" height="78.69" rx="8" fill="#be123c"></rect>
+<text x="835.00" y="171.31" text-anchor="middle" class="chart-value">582</text>
+<text x="835.00" y="292" text-anchor="middle" class="chart-label">2020s</text>
+<line x1="42" y1="258" x2="896" y2="258" class="axis"></line>
+</svg></div>
+      <div class="panel"><svg class="chart" viewBox="0 0 920 260" role="img" aria-label="发行年份密度">
+<text x="0" y="24" class="chart-title">发行年份密度</text>
+<rect x="38.00" y="209.26" width="10.06" height="0.74" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<text x="38.00" y="240" text-anchor="middle" class="chart-label">1965</text>
+<rect x="51.97" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="65.94" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="79.90" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="93.87" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="107.84" y="209.26" width="10.06" height="0.74" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<text x="107.84" y="240" text-anchor="middle" class="chart-label">1970</text>
+<rect x="121.81" y="209.26" width="10.06" height="0.74" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="135.77" y="208.52" width="10.06" height="1.48" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="149.74" y="209.26" width="10.06" height="0.74" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="163.71" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="177.68" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="191.65" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="205.61" y="209.26" width="10.06" height="0.74" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="219.58" y="208.52" width="10.06" height="1.48" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="233.55" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="247.52" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<text x="247.52" y="240" text-anchor="middle" class="chart-label">1980</text>
+<rect x="261.48" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="275.45" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="289.42" y="207.77" width="10.06" height="2.23" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="303.39" y="209.26" width="10.06" height="0.74" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="317.35" y="209.26" width="10.06" height="0.74" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="331.32" y="209.26" width="10.06" height="0.74" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="345.29" y="209.26" width="10.06" height="0.74" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="359.26" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="373.23" y="207.77" width="10.06" height="2.23" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="387.19" y="209.26" width="10.06" height="0.74" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<text x="387.19" y="240" text-anchor="middle" class="chart-label">1990</text>
+<rect x="401.16" y="210.00" width="10.06" height="0.00" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="415.13" y="208.52" width="10.06" height="1.48" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="429.10" y="207.77" width="10.06" height="2.23" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="443.06" y="207.77" width="10.06" height="2.23" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="457.03" y="207.03" width="10.06" height="2.97" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="471.00" y="205.55" width="10.06" height="4.45" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="484.97" y="206.29" width="10.06" height="3.71" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="498.94" y="205.55" width="10.06" height="4.45" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="512.90" y="198.87" width="10.06" height="11.13" rx="2" fill="#dc6b3a" opacity="0.88"></rect>
+<rect x="526.87" y="198.13" width="10.06" height="11.87" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<text x="526.87" y="240" text-anchor="middle" class="chart-label">2000</text>
+<rect x="540.84" y="185.51" width="10.06" height="24.49" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="554.81" y="187.00" width="10.06" height="23.00" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="568.77" y="189.96" width="10.06" height="20.04" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="582.74" y="169.93" width="10.06" height="40.07" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="596.71" y="180.32" width="10.06" height="29.68" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="610.68" y="158.80" width="10.06" height="51.20" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="624.65" y="138.76" width="10.06" height="71.24" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="638.61" y="141.73" width="10.06" height="68.27" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="652.58" y="151.38" width="10.06" height="58.62" rx="2" fill="#2563eb" opacity="0.88"></rect>
+<rect x="666.55" y="124.66" width="10.06" height="85.34" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<text x="666.55" y="240" text-anchor="middle" class="chart-label">2010</text>
+<rect x="680.52" y="120.21" width="10.06" height="89.79" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="694.48" y="115.01" width="10.06" height="94.99" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="708.45" y="99.43" width="10.06" height="110.57" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="722.42" y="50.45" width="10.06" height="159.55" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="736.39" y="46.00" width="10.06" height="164.00" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="750.35" y="89.78" width="10.06" height="120.22" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="764.32" y="87.56" width="10.06" height="122.44" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="778.29" y="104.62" width="10.06" height="105.38" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="792.26" y="98.69" width="10.06" height="111.31" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="806.23" y="118.72" width="10.06" height="91.28" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<text x="806.23" y="240" text-anchor="middle" class="chart-label">2020</text>
+<rect x="820.19" y="181.80" width="10.06" height="28.20" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="834.16" y="178.09" width="10.06" height="31.91" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="848.13" y="160.28" width="10.06" height="49.72" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="862.10" y="95.72" width="10.06" height="114.28" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="876.06" y="109.08" width="10.06" height="100.92" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<rect x="890.03" y="194.42" width="10.06" height="15.58" rx="2" fill="#0f766e" opacity="0.88"></rect>
+<text x="890.03" y="240" text-anchor="middle" class="chart-label">2026</text>
+<line x1="38" y1="210" x2="904" y2="210" class="axis"></line>
+</svg></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Genre 和年代的交叉分布</h2>
+      <p class="section-copy">这张组合图可以看出 playlist 的主力时期和声音类型是否重叠，比如某个年代是否被日系摇滚、电子或流行明显占据。</p>
+      <div class="grid-2">
+        <div class="panel"><svg class="chart" viewBox="0 0 920 360" role="img" aria-label="Genre by decade stacked bars">
+<text x="0" y="24" class="chart-title">Genre x 年代分布</text>
+<rect x="79.14" y="283.85" width="70.00" height="0.15" rx="3" fill="#2563eb"></rect>
+<text x="114.14" y="312" text-anchor="middle" class="chart-value">1</text>
+<text x="114.14" y="336" text-anchor="middle" class="chart-label">1960s</text>
+<rect x="199.43" y="283.85" width="70.00" height="0.15" rx="3" fill="#0f766e"></rect>
+<rect x="199.43" y="282.80" width="70.00" height="1.05" rx="3" fill="#2563eb"></rect>
+<text x="234.43" y="312" text-anchor="middle" class="chart-value">8</text>
+<text x="234.43" y="336" text-anchor="middle" class="chart-label">1970s</text>
+<rect x="319.71" y="283.55" width="70.00" height="0.45" rx="3" fill="#0f766e"></rect>
+<rect x="319.71" y="282.80" width="70.00" height="0.75" rx="3" fill="#2563eb"></rect>
+<text x="354.71" y="312" text-anchor="middle" class="chart-value">10</text>
+<text x="354.71" y="336" text-anchor="middle" class="chart-label">1980s</text>
+<rect x="440.00" y="281.74" width="70.00" height="2.26" rx="3" fill="#0f766e"></rect>
+<rect x="440.00" y="280.69" width="70.00" height="1.05" rx="3" fill="#2563eb"></rect>
+<rect x="440.00" y="278.58" width="70.00" height="2.11" rx="3" fill="#dc6b3a"></rect>
+<rect x="440.00" y="278.28" width="70.00" height="0.30" rx="3" fill="#7c3aed"></rect>
+<rect x="440.00" y="277.83" width="70.00" height="0.45" rx="3" fill="#c2410c"></rect>
+<text x="475.00" y="312" text-anchor="middle" class="chart-value">45</text>
+<text x="475.00" y="336" text-anchor="middle" class="chart-label">1990s</text>
+<rect x="560.29" y="253.60" width="70.00" height="30.40" rx="3" fill="#0f766e"></rect>
+<rect x="560.29" y="240.20" width="70.00" height="13.40" rx="3" fill="#2563eb"></rect>
+<rect x="560.29" y="214.61" width="70.00" height="25.59" rx="3" fill="#dc6b3a"></rect>
+<rect x="560.29" y="209.95" width="70.00" height="4.67" rx="3" fill="#7c3aed"></rect>
+<rect x="560.29" y="208.90" width="70.00" height="1.05" rx="3" fill="#c2410c"></rect>
+<rect x="560.29" y="206.64" width="70.00" height="2.26" rx="3" fill="#0891b2"></rect>
+<text x="595.29" y="312" text-anchor="middle" class="chart-value">537</text>
+<text x="595.29" y="336" text-anchor="middle" class="chart-label">2000s</text>
+<rect x="680.57" y="177.14" width="70.00" height="106.86" rx="3" fill="#0f766e"></rect>
+<rect x="680.57" y="133.94" width="70.00" height="43.20" rx="3" fill="#2563eb"></rect>
+<rect x="680.57" y="99.32" width="70.00" height="34.62" rx="3" fill="#dc6b3a"></rect>
+<rect x="680.57" y="69.67" width="70.00" height="29.65" rx="3" fill="#7c3aed"></rect>
+<rect x="680.57" y="64.41" width="70.00" height="5.27" rx="3" fill="#c2410c"></rect>
+<rect x="680.57" y="59.14" width="70.00" height="5.27" rx="3" fill="#0891b2"></rect>
+<text x="715.57" y="312" text-anchor="middle" class="chart-value">1568</text>
+<text x="715.57" y="336" text-anchor="middle" class="chart-label">2010s</text>
+<rect x="800.86" y="261.72" width="70.00" height="22.28" rx="3" fill="#0f766e"></rect>
+<rect x="800.86" y="213.86" width="70.00" height="47.86" rx="3" fill="#2563eb"></rect>
+<rect x="800.86" y="206.19" width="70.00" height="7.68" rx="3" fill="#dc6b3a"></rect>
+<rect x="800.86" y="202.27" width="70.00" height="3.91" rx="3" fill="#7c3aed"></rect>
+<rect x="800.86" y="199.71" width="70.00" height="2.56" rx="3" fill="#c2410c"></rect>
+<rect x="800.86" y="198.21" width="70.00" height="1.51" rx="3" fill="#0891b2"></rect>
+<text x="835.86" y="312" text-anchor="middle" class="chart-value">582</text>
+<text x="835.86" y="336" text-anchor="middle" class="chart-label">2020s</text>
+<rect x="54" y="344" width="10" height="10" rx="2" fill="#0f766e"></rect>
+<text x="70" y="354" class="legend-small">日系 Pop/Rock</text>
+<rect x="196" y="344" width="10" height="10" rx="2" fill="#2563eb"></rect>
+<text x="212" y="354" class="legend-small">Other/Unclassifi</text>
+<rect x="338" y="344" width="10" height="10" rx="2" fill="#dc6b3a"></rect>
+<text x="354" y="354" class="legend-small">C-Pop/Mandopop</text>
+<rect x="480" y="344" width="10" height="10" rx="2" fill="#7c3aed"></rect>
+<text x="496" y="354" class="legend-small">Anime/Game/Sound</text>
+<rect x="622" y="344" width="10" height="10" rx="2" fill="#c2410c"></rect>
+<text x="638" y="354" class="legend-small">Pop</text>
+<rect x="764" y="344" width="10" height="10" rx="2" fill="#0891b2"></rect>
+<text x="780" y="354" class="legend-small">Rock/Alternative</text>
+<line x1="54" y1="284" x2="896" y2="284" class="axis"></line>
+</svg></div>
+        <div class="panel"><svg class="chart heatmap" viewBox="0 0 874 374" role="img" aria-label="Genre and decade heatmap">
+<text x="0" y="24" class="chart-title">Genre x 年代热力图</text>
+<text x="226.00" y="42" text-anchor="middle" class="chart-label">1960s</text>
+<text x="322.00" y="42" text-anchor="middle" class="chart-label">1970s</text>
+<text x="418.00" y="42" text-anchor="middle" class="chart-label">1980s</text>
+<text x="514.00" y="42" text-anchor="middle" class="chart-label">1990s</text>
+<text x="610.00" y="42" text-anchor="middle" class="chart-label">2000s</text>
+<text x="706.00" y="42" text-anchor="middle" class="chart-label">2010s</text>
+<text x="802.00" y="42" text-anchor="middle" class="chart-label">2020s</text>
+<text x="0" y="73" class="chart-label">日系 Pop/Rock</text>
+<rect x="178" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.081"></rect>
+<text x="318.00" y="70" text-anchor="middle" class="heat-value">1</text>
+<rect x="370" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.083"></rect>
+<text x="414.00" y="70" text-anchor="middle" class="heat-value">3</text>
+<rect x="466" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.097"></rect>
+<text x="510.00" y="70" text-anchor="middle" class="heat-value">15</text>
+<rect x="562" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.313"></rect>
+<text x="606.00" y="70" text-anchor="middle" class="heat-value">202</text>
+<rect x="658" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.900"></rect>
+<text x="702.00" y="70" text-anchor="middle" class="heat-value">710</text>
+<rect x="754" y="50" width="88" height="28" rx="7" fill="#0f766e" opacity="0.251"></rect>
+<text x="798.00" y="70" text-anchor="middle" class="heat-value">148</text>
+<text x="0" y="109" class="chart-label">Other/Unclassified</text>
+<rect x="178" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.081"></rect>
+<text x="222.00" y="106" text-anchor="middle" class="heat-value">1</text>
+<rect x="274" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.088"></rect>
+<text x="318.00" y="106" text-anchor="middle" class="heat-value">7</text>
+<rect x="370" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.086"></rect>
+<text x="414.00" y="106" text-anchor="middle" class="heat-value">5</text>
+<rect x="466" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.088"></rect>
+<text x="510.00" y="106" text-anchor="middle" class="heat-value">7</text>
+<rect x="562" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.183"></rect>
+<text x="606.00" y="106" text-anchor="middle" class="heat-value">89</text>
+<rect x="658" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.411"></rect>
+<text x="702.00" y="106" text-anchor="middle" class="heat-value">287</text>
+<rect x="754" y="86" width="88" height="28" rx="7" fill="#0f766e" opacity="0.447"></rect>
+<text x="798.00" y="106" text-anchor="middle" class="heat-value">318</text>
+<text x="0" y="145" class="chart-label">C-Pop/Mandopop</text>
+<rect x="178" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="466" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.096"></rect>
+<text x="510.00" y="142" text-anchor="middle" class="heat-value">14</text>
+<rect x="562" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.276"></rect>
+<text x="606.00" y="142" text-anchor="middle" class="heat-value">170</text>
+<rect x="658" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.346"></rect>
+<text x="702.00" y="142" text-anchor="middle" class="heat-value">230</text>
+<rect x="754" y="122" width="88" height="28" rx="7" fill="#0f766e" opacity="0.139"></rect>
+<text x="798.00" y="142" text-anchor="middle" class="heat-value">51</text>
+<text x="0" y="181" class="chart-label">Anime/Game/Soundtrack</text>
+<rect x="178" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="466" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.082"></rect>
+<text x="510.00" y="178" text-anchor="middle" class="heat-value">2</text>
+<rect x="562" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.116"></rect>
+<text x="606.00" y="178" text-anchor="middle" class="heat-value">31</text>
+<rect x="658" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.308"></rect>
+<text x="702.00" y="178" text-anchor="middle" class="heat-value">197</text>
+<rect x="754" y="158" width="88" height="28" rx="7" fill="#0f766e" opacity="0.110"></rect>
+<text x="798.00" y="178" text-anchor="middle" class="heat-value">26</text>
+<text x="0" y="217" class="chart-label">Pop</text>
+<rect x="178" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="466" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.083"></rect>
+<text x="510.00" y="214" text-anchor="middle" class="heat-value">3</text>
+<rect x="562" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.088"></rect>
+<text x="606.00" y="214" text-anchor="middle" class="heat-value">7</text>
+<rect x="658" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.120"></rect>
+<text x="702.00" y="214" text-anchor="middle" class="heat-value">35</text>
+<rect x="754" y="194" width="88" height="28" rx="7" fill="#0f766e" opacity="0.100"></rect>
+<text x="798.00" y="214" text-anchor="middle" class="heat-value">17</text>
+<text x="0" y="253" class="chart-label">Rock/Alternative</text>
+<rect x="178" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="466" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="562" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.097"></rect>
+<text x="606.00" y="250" text-anchor="middle" class="heat-value">15</text>
+<rect x="658" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.120"></rect>
+<text x="702.00" y="250" text-anchor="middle" class="heat-value">35</text>
+<rect x="754" y="230" width="88" height="28" rx="7" fill="#0f766e" opacity="0.092"></rect>
+<text x="798.00" y="250" text-anchor="middle" class="heat-value">10</text>
+<text x="0" y="289" class="chart-label">Electronic</text>
+<rect x="178" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="466" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="562" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.088"></rect>
+<text x="606.00" y="286" text-anchor="middle" class="heat-value">7</text>
+<rect x="658" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.132"></rect>
+<text x="702.00" y="286" text-anchor="middle" class="heat-value">45</text>
+<rect x="754" y="266" width="88" height="28" rx="7" fill="#0f766e" opacity="0.088"></rect>
+<text x="798.00" y="286" text-anchor="middle" class="heat-value">7</text>
+<text x="0" y="325" class="chart-label">Classical/Instrumental</text>
+<rect x="178" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="274" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+<rect x="370" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.082"></rect>
+<text x="414.00" y="322" text-anchor="middle" class="heat-value">2</text>
+<rect x="466" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.085"></rect>
+<text x="510.00" y="322" text-anchor="middle" class="heat-value">4</text>
+<rect x="562" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.085"></rect>
+<text x="606.00" y="322" text-anchor="middle" class="heat-value">4</text>
+<rect x="658" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.088"></rect>
+<text x="702.00" y="322" text-anchor="middle" class="heat-value">7</text>
+<rect x="754" y="302" width="88" height="28" rx="7" fill="#0f766e" opacity="0.050"></rect>
+</svg></div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Top raw genre tags</h2>
+      <p class="section-copy">这是 Spotify 返回的原始 artist genre tag，保留细颗粒度，可以看到比 family 更具体的审美倾向。</p>
+      <div class="panel tag-cloud">
+        <span class="pill"><span>j-pop</span><strong> 984, 35.8%</strong></span>
+<span class="pill"><span>japanese music</span><strong> 470, 17.1%</strong></span>
+<span class="pill"><span>mandopop</span><strong> 460, 16.7%</strong></span>
+<span class="pill"><span>j-rock</span><strong> 332, 12.1%</strong></span>
+<span class="pill"><span>anime</span><strong> 276, 10.0%</strong></span>
+<span class="pill"><span>c-pop</span><strong> 269, 9.8%</strong></span>
+<span class="pill"><span>soundtrack</span><strong> 112, 4.1%</strong></span>
+<span class="pill"><span>japanese rock</span><strong> 82, 3.0%</strong></span>
+<span class="pill"><span>pop rock</span><strong> 76, 2.8%</strong></span>
+<span class="pill"><span>dance pop</span><strong> 73, 2.7%</strong></span>
+<span class="pill"><span>anime or game music</span><strong> 57, 2.1%</strong></span>
+<span class="pill"><span>alternative rock</span><strong> 54, 2.0%</strong></span>
+<span class="pill"><span>japanese electropop</span><strong> 40, 1.5%</strong></span>
+<span class="pill"><span>r&amp;b</span><strong> 35, 1.3%</strong></span>
+<span class="pill"><span>electropop</span><strong> 35, 1.3%</strong></span>
+<span class="pill"><span>taiwan pop</span><strong> 34, 1.2%</strong></span>
+<span class="pill"><span>pop</span><strong> 33, 1.2%</strong></span>
+<span class="pill"><span>vocaloid</span><strong> 33, 1.2%</strong></span>
+<span class="pill"><span>pop punk</span><strong> 31, 1.1%</strong></span>
+<span class="pill"><span>cantopop</span><strong> 31, 1.1%</strong></span>
+<span class="pill"><span>technopop</span><strong> 30, 1.1%</strong></span>
+<span class="pill"><span>singer-songwriter</span><strong> 28, 1.0%</strong></span>
+<span class="pill"><span>singapore pop</span><strong> 27, 1.0%</strong></span>
+<span class="pill"><span>chinese r&amp;b</span><strong> 26, 0.9%</strong></span>
+<span class="pill"><span>taiwan singer-songwriter</span><strong> 24, 0.9%</strong></span>
+<span class="pill"><span>game music</span><strong> 22, 0.8%</strong></span>
+<span class="pill"><span>alternative metal</span><strong> 21, 0.8%</strong></span>
+<span class="pill"><span>jazz rock</span><strong> 21, 0.8%</strong></span>
+<span class="pill"><span>chinese pop rock</span><strong> 19, 0.7%</strong></span>
+<span class="pill"><span>folk pop</span><strong> 16, 0.6%</strong></span>
+<span class="pill"><span>chinese pop</span><strong> 16, 0.6%</strong></span>
+<span class="pill"><span>symphonic pop</span><strong> 16, 0.6%</strong></span>
+<span class="pill"><span>post-hardcore</span><strong> 15, 0.5%</strong></span>
+<span class="pill"><span>indie rock</span><strong> 14, 0.5%</strong></span>
+<span class="pill"><span>film score</span><strong> 13, 0.5%</strong></span>
+<span class="pill"><span>acoustic</span><strong> 12, 0.4%</strong></span>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">按歌手分组</h2>
+      <div class="table-wrap "><table><thead><tr><th>Artist</th><th>Tracks</th><th>Share</th><th>Main genre</th><th>Main decade</th><th>Representative tracks</th></tr></thead><tbody><tr><td class="strong">Aimer</td><td>72</td><td>2.6%</td><td>日系 Pop/Rock</td><td>2010s</td><td class="muted-cell">After Rain / broKen NIGHT / I beg you</td></tr>
+<tr><td class="strong">Do As Infinity</td><td>45</td><td>1.6%</td><td>日系 Pop/Rock</td><td>2010s</td><td class="muted-cell">遠雷 / 深い森 / 柊</td></tr>
+<tr><td class="strong">BUMP OF CHICKEN</td><td>45</td><td>1.6%</td><td>日系 Pop/Rock</td><td>2000s</td><td class="muted-cell">ray / Butterfly / 天体観測</td></tr>
+<tr><td class="strong">Perfume</td><td>30</td><td>1.1%</td><td>Electronic</td><td>2010s</td><td class="muted-cell">ワンルーム・ディスコ / Pick Me Up / 微かなカオリ</td></tr>
+<tr><td class="strong">[Alexandros]</td><td>30</td><td>1.1%</td><td>日系 Pop/Rock</td><td>2010s</td><td class="muted-cell">ワタリドリ / Girl A / Adventure</td></tr>
+<tr><td class="strong">Stefanie Sun</td><td>27</td><td>1.0%</td><td>C-Pop/Mandopop</td><td>2000s</td><td class="muted-cell">跳舞的梵谷 / 原點 / 直來直往</td></tr>
+<tr><td class="strong">Jay Chou</td><td>26</td><td>0.9%</td><td>C-Pop/Mandopop</td><td>2000s</td><td class="muted-cell">外婆 / 聽見下雨的聲音 / 告白氣球</td></tr>
+<tr><td class="strong">supercell</td><td>23</td><td>0.8%</td><td>Anime/Game/Soundtrack</td><td>2010s</td><td class="muted-cell">拍手喝采歌合 / さよならメモリーズ / 告白</td></tr>
+<tr><td class="strong">Cheer Chen</td><td>23</td><td>0.8%</td><td>C-Pop/Mandopop</td><td>2010s</td><td class="muted-cell">旅行的意義(電子版) / La Vie En Rose / 雨水一盒 - 時間的歌巡迴演唱會 Live</td></tr>
+<tr><td class="strong">Sawano Hiroyuki</td><td>22</td><td>0.8%</td><td>Anime/Game/Soundtrack</td><td>2010s</td><td class="muted-cell">Full-Frontal / Unicorn / Bauklotze</td></tr>
+<tr><td class="strong">Monkey Majik</td><td>21</td><td>0.8%</td><td>日系 Pop/Rock</td><td>2020s</td><td class="muted-cell">Headlight / SAKURA / 留学生</td></tr>
+<tr><td class="strong">Sheena Ringo</td><td>20</td><td>0.7%</td><td>日系 Pop/Rock</td><td>2000s</td><td class="muted-cell">ギャンブル - LIVE / おとなの掟 / 歌舞伎町の女王</td></tr>
+<tr><td class="strong">ONE OK ROCK</td><td>20</td><td>0.7%</td><td>日系 Pop/Rock</td><td>2010s</td><td class="muted-cell">エトセトラ / the same as... / In the Stars (feat. Kiiara)</td></tr>
+<tr><td class="strong">SEKAI NO OWARI</td><td>19</td><td>0.7%</td><td>日系 Pop/Rock</td><td>2010s</td><td class="muted-cell">花鳥風月 / LOVE SONG / Missing</td></tr>
+<tr><td class="strong">F.I.R.</td><td>19</td><td>0.7%</td><td>C-Pop/Mandopop</td><td>2000s</td><td class="muted-cell">你的微笑 - Demo / 微光 / 月牙灣</td></tr>
+<tr><td class="strong">MAN WITH A MISSION</td><td>18</td><td>0.7%</td><td>日系 Pop/Rock</td><td>2010s</td><td class="muted-cell">database / Emotions / FLY AGAIN</td></tr>
+<tr><td class="strong">牛奶@咖啡</td><td>16</td><td>0.6%</td><td>C-Pop/Mandopop</td><td>2000s</td><td class="muted-cell">爱的旋律 / 我們只差一點點 / 穿越珊瑚海</td></tr>
+<tr><td class="strong">Summer Lei</td><td>16</td><td>0.6%</td><td>C-Pop/Mandopop</td><td>2010s</td><td class="muted-cell">發光房子 / 清晨旅行 / 逝</td></tr>
+<tr><td class="strong">Kalafina</td><td>16</td><td>0.6%</td><td>Anime/Game/Soundtrack</td><td>2010s</td><td class="muted-cell">真昼 / oblivious / to the beginning</td></tr>
+<tr><td class="strong">RADWIMPS</td><td>15</td><td>0.5%</td><td>日系 Pop/Rock</td><td>2010s</td><td class="muted-cell">&#x27;I&#x27; Novel / me me she / グーの音</td></tr>
+<tr><td class="strong">Faye Wong</td><td>15</td><td>0.5%</td><td>C-Pop/Mandopop</td><td>2000s</td><td class="muted-cell">光之翼 / 又見炊煙 / 清平調 - 獨唱版</td></tr>
+<tr><td class="strong">Hikaru Utada</td><td>14</td><td>0.5%</td><td>日系 Pop/Rock</td><td>2000s</td><td class="muted-cell">Stay Gold / Keep Tryin&#x27; / 桜流し</td></tr>
+<tr><td class="strong">Lady Gaga</td><td>13</td><td>0.5%</td><td>Pop</td><td>2010s</td><td class="muted-cell">Do What U Want / Poker Face / Marry The Night</td></tr>
+<tr><td class="strong">JOLIN</td><td>13</td><td>0.5%</td><td>C-Pop/Mandopop</td><td>2000s</td><td class="muted-cell">日不落 - Play World Tour Live / I&#x27;m not yours (feat. 安室奈美惠) / 唇語</td></tr>
+<tr><td class="strong">Avril Lavigne</td><td>12</td><td>0.4%</td><td>Rock/Alternative</td><td>2010s</td><td class="muted-cell">Fly / I Fell In Love With The Devil / What the Hell</td></tr>
+<tr><td class="strong">祖堅 正慶</td><td>12</td><td>0.4%</td><td>Anime/Game/Soundtrack</td><td>2010s</td><td class="muted-cell">過重圧殺! ～蛮神タイタン討滅戦～ / 混沌の渦動 ～蛮神リヴァイアサン討滅戦～ / 魔大戦の傷跡 ～腐敗遺跡 古アムダプール市街～</td></tr>
+<tr><td class="strong">OFFICIAL HIGE DANDISM</td><td>12</td><td>0.4%</td><td>日系 Pop/Rock</td><td>2020s</td><td class="muted-cell">Stand By You / Pretender / スターダスト</td></tr>
+<tr><td class="strong">m-flo</td><td>12</td><td>0.4%</td><td>Other/Unclassified</td><td>2020s</td><td class="muted-cell">Yours only, / You Got This / IRONY</td></tr>
+<tr><td class="strong">Ikimonogakari</td><td>11</td><td>0.4%</td><td>日系 Pop/Rock</td><td>2000s</td><td class="muted-cell">青春ライン / ホタルノヒカリ / WE DO</td></tr>
+<tr><td class="strong">EGOIST</td><td>11</td><td>0.4%</td><td>Anime/Game/Soundtrack</td><td>2010s</td><td class="muted-cell">Ghost of a smile / Departures ～あなたにおくるアイの歌～ / The Everlasting Guilty Crown</td></tr></tbody></table></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">按 Genre 分组</h2>
+      <div class="table-wrap "><table><thead><tr><th>Genre family</th><th>Tracks</th><th>Share</th><th>Peak decade</th><th>Top artists</th><th>Raw genre tags</th></tr></thead><tbody><tr><td class="strong">日系 Pop/Rock</td><td>1079</td><td>39.2%</td><td>2010s</td><td class="muted-cell">Aimer (72), Do As Infinity (45), BUMP OF CHICKEN (45), [Alexandros] (30), Monkey Majik (21)</td><td class="muted-cell">j-pop (884), japanese music (470), j-rock (332), anime (97), japanese rock (82), pop rock (41)</td></tr>
+<tr><td class="strong">Other/Unclassified</td><td>714</td><td>26.0%</td><td>2020s</td><td class="muted-cell">m-flo (11), Twenty One Pilots (9), aespa (7), Billie Eilish (7), STAYC (7)</td><td class="muted-cell"></td></tr>
+<tr><td class="strong">C-Pop/Mandopop</td><td>465</td><td>16.9%</td><td>2010s</td><td class="muted-cell">Stefanie Sun (27), Jay Chou (26), Cheer Chen (23), F.I.R. (19), 牛奶@咖啡 (16)</td><td class="muted-cell">mandopop (460), c-pop (269), taiwan pop (34), cantopop (31), singapore pop (27), chinese r&amp;b (26)</td></tr>
+<tr><td class="strong">Anime/Game/Soundtrack</td><td>256</td><td>9.3%</td><td>2010s</td><td class="muted-cell">supercell (23), Sawano Hiroyuki (22), Kalafina (16), 祖堅 正慶 (12), EGOIST (11)</td><td class="muted-cell">anime (179), soundtrack (112), j-pop (100), anime or game music (57), vocaloid (23), symphonic pop (16)</td></tr>
+<tr><td class="strong">Pop</td><td>62</td><td>2.3%</td><td>2010s</td><td class="muted-cell">Lady Gaga (13), Carly Rae Jepsen (6), Taylor Swift (5), Mariah Carey (5), Kate Havnevik (5)</td><td class="muted-cell">pop (33), dance pop (29), electropop (20), r&amp;b (10), art pop (8), singer-songwriter (6)</td></tr>
+<tr><td class="strong">Rock/Alternative</td><td>60</td><td>2.2%</td><td>2010s</td><td class="muted-cell">Avril Lavigne (12), Coldplay (11), My Chemical Romance (7), Sum 41 (7), Fall Out Boy (6)</td><td class="muted-cell">pop punk (31), pop rock (31), alternative rock (31), emo pop (8), emo (7), alternative metal (3)</td></tr>
+<tr><td class="strong">Electronic</td><td>59</td><td>2.1%</td><td>2010s</td><td class="muted-cell">Perfume (30), Reol (10), Sakuzyo (6), Clean Bandit (3), Charli xcx (3)</td><td class="muted-cell">japanese electropop (40), technopop (30), electronic (10), vocaloid (10), game music (6), electropop (6)</td></tr>
+<tr><td class="strong">Classical/Instrumental</td><td>17</td><td>0.6%</td><td>2010s</td><td class="muted-cell">Joe Hisaishi (9), Ryuichi Sakamoto (3), Yann Tiersen (2), Vox Angeli (2), Taeko Onuki (1)</td><td class="muted-cell">film score (11), orchestral (9), modern classical (6), ambient (4), classical crossover (2)</td></tr>
+<tr><td class="strong">Folk/Acoustic</td><td>16</td><td>0.6%</td><td>2010s</td><td class="muted-cell">YOUMOU TO OHANA (7), The Weepies (5), Ingrid Michaelson (4)</td><td class="muted-cell">folk pop (16), acoustic (12), indie pop (4)</td></tr>
+<tr><td class="strong">K-Pop/Korean</td><td>11</td><td>0.4%</td><td>2010s</td><td class="muted-cell">Dreamcatcher (5), BLACKPINK (3), AILEE (1), Various Artists (1), GroovyRoom (1)</td><td class="muted-cell">k-pop (8), k-rock (5), dance pop (3), korean pop (3)</td></tr>
+<tr><td class="strong">Jazz/Soul</td><td>9</td><td>0.3%</td><td>2000s</td><td class="muted-cell">All That Jazz (6), Lisa Ono (3)</td><td class="muted-cell">jazz (9), japanese jazz (6), bossa nova (3)</td></tr>
+<tr><td class="strong">Hip-Hop/R&amp;B</td><td>3</td><td>0.1%</td><td>2010s</td><td class="muted-cell">John Legend (2), Ariana Grande (1)</td><td class="muted-cell">r&amp;b (3), soul (3)</td></tr></tbody></table></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">按年代分组</h2>
+      <div class="table-wrap "><table><thead><tr><th>Decade</th><th>Tracks</th><th>Share</th><th>Top genres</th><th>Top artists</th><th>Representative tracks</th></tr></thead><tbody><tr><td class="strong">1960s</td><td>1</td><td>0.0%</td><td class="muted-cell">Other/Unclassified (1)</td><td class="muted-cell">Frank Sinatra (1)</td><td class="muted-cell">Luck Be A Lady</td></tr>
+<tr><td class="strong">1970s</td><td>8</td><td>0.3%</td><td class="muted-cell">Other/Unclassified (7), 日系 Pop/Rock (1)</td><td class="muted-cell">Bill Withers (2), BUZZ (1), Earth, Wind &amp; Fire (1), Diana Ross (1)</td><td class="muted-cell">Ain&#x27;t No Sunshine / ウェディング・ベル・ソング / September / I&#x27;m Still Waiting</td></tr>
+<tr><td class="strong">1980s</td><td>10</td><td>0.4%</td><td class="muted-cell">Other/Unclassified (5), 日系 Pop/Rock (3), Classical/Instrumental (2)</td><td class="muted-cell">Joe Hisaishi (2), Anri (2), Hitomi Tohyama (1), DREAMS COME TRUE (1)</td><td class="muted-cell">CATHY / Gran&#x27;ma Dola / 悲しみがとまらない　I CAN&#x27;T STOP THE LONELINESS / A Town with an Ocean View</td></tr>
+<tr><td class="strong">1990s</td><td>45</td><td>1.6%</td><td class="muted-cell">日系 Pop/Rock (15), C-Pop/Mandopop (14), Other/Unclassified (7), Classical/Instrumental (4)</td><td class="muted-cell">Faye Wong (6), BUMP OF CHICKEN (4), Joe Hisaishi (3), Mariah Carey (3)</td><td class="muted-cell">No Scrubs / Má vlast: Vltava (The Moldau). Allegro commodo, non agitato / Je m&#x27;appelle Hélène / Highlander</td></tr>
+<tr><td class="strong">2000s</td><td>537</td><td>19.5%</td><td class="muted-cell">日系 Pop/Rock (202), C-Pop/Mandopop (170), Other/Unclassified (89), Anime/Game/Soundtrack (31)</td><td class="muted-cell">BUMP OF CHICKEN (22), Stefanie Sun (19), Jay Chou (16), F.I.R. (10)</td><td class="muted-cell">桜 / 口袋的天空 / 青春ライン / 原點</td></tr>
+<tr><td class="strong">2010s</td><td>1568</td><td>57.0%</td><td class="muted-cell">日系 Pop/Rock (710), Other/Unclassified (287), C-Pop/Mandopop (230), Anime/Game/Soundtrack (197)</td><td class="muted-cell">Aimer (67), Do As Infinity (33), [Alexandros] (24), supercell (22)</td><td class="muted-cell">37.2° / ロマンスがありあまる / ワンルーム・ディスコ / Life</td></tr>
+<tr><td class="strong">2020s</td><td>582</td><td>21.2%</td><td class="muted-cell">Other/Unclassified (318), 日系 Pop/Rock (148), C-Pop/Mandopop (51), Anime/Game/Soundtrack (26)</td><td class="muted-cell">Monkey Majik (11), Fujii Kaze (8), OFFICIAL HIGE DANDISM (8), XG (8)</td><td class="muted-cell">Another Day Of Sun / Someone In The Crowd / Starrrrrrr - Bedroom ver. / Shake It Off</td></tr></tbody></table></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Genre 明细</h2>
+      <div class="grid-2">
+        
+            <details>
+              <summary><span>日系 Pop/Rock</span><strong>1079 tracks</strong></summary>
+              <div class="detail-grid">
+                <div>
+                  <h4>Top artists</h4>
+                  <p>Aimer (72), Do As Infinity (45), BUMP OF CHICKEN (45), [Alexandros] (30), Monkey Majik (21)</p>
+                </div>
+                <div>
+                  <h4>Raw Spotify genre tags</h4>
+                  <p>j-pop (884), japanese music (470), j-rock (332), anime (97), japanese rock (82), pop rock (41), alternative rock (23), singer-songwriter (22)</p>
+                </div>
+              </div>
+            </details>
+            
+            <details>
+              <summary><span>Other/Unclassified</span><strong>714 tracks</strong></summary>
+              <div class="detail-grid">
+                <div>
+                  <h4>Top artists</h4>
+                  <p>m-flo (11), Twenty One Pilots (9), aespa (7), Billie Eilish (7), STAYC (7)</p>
+                </div>
+                <div>
+                  <h4>Raw Spotify genre tags</h4>
+                  <p></p>
+                </div>
+              </div>
+            </details>
+            
+            <details>
+              <summary><span>C-Pop/Mandopop</span><strong>465 tracks</strong></summary>
+              <div class="detail-grid">
+                <div>
+                  <h4>Top artists</h4>
+                  <p>Stefanie Sun (27), Jay Chou (26), Cheer Chen (23), F.I.R. (19), 牛奶@咖啡 (16)</p>
+                </div>
+                <div>
+                  <h4>Raw Spotify genre tags</h4>
+                  <p>mandopop (460), c-pop (269), taiwan pop (34), cantopop (31), singapore pop (27), chinese r&amp;b (26), taiwan singer-songwriter (24), chinese pop rock (19)</p>
+                </div>
+              </div>
+            </details>
+            
+            <details>
+              <summary><span>Anime/Game/Soundtrack</span><strong>256 tracks</strong></summary>
+              <div class="detail-grid">
+                <div>
+                  <h4>Top artists</h4>
+                  <p>supercell (23), Sawano Hiroyuki (22), Kalafina (16), 祖堅 正慶 (12), EGOIST (11)</p>
+                </div>
+                <div>
+                  <h4>Raw Spotify genre tags</h4>
+                  <p>anime (179), soundtrack (112), j-pop (100), anime or game music (57), vocaloid (23), symphonic pop (16), game music (16), electropop (9)</p>
+                </div>
+              </div>
+            </details>
+            
+            <details>
+              <summary><span>Pop</span><strong>62 tracks</strong></summary>
+              <div class="detail-grid">
+                <div>
+                  <h4>Top artists</h4>
+                  <p>Lady Gaga (13), Carly Rae Jepsen (6), Taylor Swift (5), Mariah Carey (5), Kate Havnevik (5)</p>
+                </div>
+                <div>
+                  <h4>Raw Spotify genre tags</h4>
+                  <p>pop (33), dance pop (29), electropop (20), r&amp;b (10), art pop (8), singer-songwriter (6), trip hop (5), pop rock (4)</p>
+                </div>
+              </div>
+            </details>
+            
+            <details>
+              <summary><span>Rock/Alternative</span><strong>60 tracks</strong></summary>
+              <div class="detail-grid">
+                <div>
+                  <h4>Top artists</h4>
+                  <p>Avril Lavigne (12), Coldplay (11), My Chemical Romance (7), Sum 41 (7), Fall Out Boy (6)</p>
+                </div>
+                <div>
+                  <h4>Raw Spotify genre tags</h4>
+                  <p>pop punk (31), pop rock (31), alternative rock (31), emo pop (8), emo (7), alternative metal (3), metalcore (3), post-grunge (2)</p>
+                </div>
+              </div>
+            </details>
+            
+            <details>
+              <summary><span>Electronic</span><strong>59 tracks</strong></summary>
+              <div class="detail-grid">
+                <div>
+                  <h4>Top artists</h4>
+                  <p>Perfume (30), Reol (10), Sakuzyo (6), Clean Bandit (3), Charli xcx (3)</p>
+                </div>
+                <div>
+                  <h4>Raw Spotify genre tags</h4>
+                  <p>japanese electropop (40), technopop (30), electronic (10), vocaloid (10), game music (6), electropop (6), dance pop (6), hyperpop (3)</p>
+                </div>
+              </div>
+            </details>
+            
+            <details>
+              <summary><span>Classical/Instrumental</span><strong>17 tracks</strong></summary>
+              <div class="detail-grid">
+                <div>
+                  <h4>Top artists</h4>
+                  <p>Joe Hisaishi (9), Ryuichi Sakamoto (3), Yann Tiersen (2), Vox Angeli (2), Taeko Onuki (1)</p>
+                </div>
+                <div>
+                  <h4>Raw Spotify genre tags</h4>
+                  <p>film score (11), orchestral (9), modern classical (6), ambient (4), classical crossover (2)</p>
+                </div>
+              </div>
+            </details>
+            
+            <details>
+              <summary><span>Folk/Acoustic</span><strong>16 tracks</strong></summary>
+              <div class="detail-grid">
+                <div>
+                  <h4>Top artists</h4>
+                  <p>YOUMOU TO OHANA (7), The Weepies (5), Ingrid Michaelson (4)</p>
+                </div>
+                <div>
+                  <h4>Raw Spotify genre tags</h4>
+                  <p>folk pop (16), acoustic (12), indie pop (4)</p>
+                </div>
+              </div>
+            </details>
+            
+            <details>
+              <summary><span>K-Pop/Korean</span><strong>11 tracks</strong></summary>
+              <div class="detail-grid">
+                <div>
+                  <h4>Top artists</h4>
+                  <p>Dreamcatcher (5), BLACKPINK (3), AILEE (1), Various Artists (1), GroovyRoom (1)</p>
+                </div>
+                <div>
+                  <h4>Raw Spotify genre tags</h4>
+                  <p>k-pop (8), k-rock (5), dance pop (3), korean pop (3)</p>
+                </div>
+              </div>
+            </details>
+            
+            <details>
+              <summary><span>Jazz/Soul</span><strong>9 tracks</strong></summary>
+              <div class="detail-grid">
+                <div>
+                  <h4>Top artists</h4>
+                  <p>All That Jazz (6), Lisa Ono (3)</p>
+                </div>
+                <div>
+                  <h4>Raw Spotify genre tags</h4>
+                  <p>jazz (9), japanese jazz (6), bossa nova (3)</p>
+                </div>
+              </div>
+            </details>
+            
+            <details>
+              <summary><span>Hip-Hop/R&amp;B</span><strong>3 tracks</strong></summary>
+              <div class="detail-grid">
+                <div>
+                  <h4>Top artists</h4>
+                  <p>John Legend (2), Ariana Grande (1)</p>
+                </div>
+                <div>
+                  <h4>Raw Spotify genre tags</h4>
+                  <p>r&amp;b (3), soul (3)</p>
+                </div>
+              </div>
+            </details>
+            
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">方法说明</h2>
+      <div class="panel flat method">
+        <p>Artist 分组按 primary artist 统计。合并模式会先读取 playlist 和 Liked Songs，然后按 track_id 去重；同一首歌如果两边都出现，会归入 Both。Genre 分组先尝试读取 Spotify artist genres；由于当前 API 对这个 token 返回的 artist 对象没有 genres，报告会用本地 artist override 补齐常见艺人，再把剩余曲目归为 Other/Unclassified。年代按 album release_date 的年份归到 1980s、1990s、2000s 这类 decade bucket。报告同时给出 genre family 和 raw tag cloud。</p>
+        <p>输出文件: /Users/yonghuyu/spotify/outputs/spotify_playlist_analysis_我喜欢的音乐___liked_songs_20260706_160941.html</p>
+      </div>
+    </section>
+
+    <div class="footer">Generated locally from Spotify API. No credentials or token values are embedded in this HTML.</div>
+  </main>
+</body>
+</html>
